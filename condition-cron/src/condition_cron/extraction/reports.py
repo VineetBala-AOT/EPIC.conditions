@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 REPORT_TYPES = [
     "Compliance Notification",
     "Compliance Self-Report",
-    "Management Plan Report",
+    "Management Plan Associated Report",
     "Project Status Notification",
     "Monitoring/Technical Report",
 ]
@@ -22,17 +22,20 @@ REPORT_SUBTYPES = [
     "Phase Status Notification",
 ]
 
-REPORT_FREQUENCIES = ["As needed", "One time", "Annually", "Quarterly", "Other"]
+# Must match condition-web's REPORT_FREQUENCIES in
+# ConditionAttribute/Reports/constants.ts — phase/frequency columns are
+# unconstrained strings, so a mismatch here silently breaks the staff-facing
+# dropdowns (imported value won't match any option, renders blank).
+REPORT_FREQUENCIES = ["As Needed", "One Time", "Annually", "Semi-Annually", "Quarterly", "Monthly", "Weekly", "Other"]
 
+# Must match condition-web's REPORT_PHASES in the same file.
 REPORT_PHASES = [
     "All Phases",
-    "Pre-Construction",
     "Construction",
-    "Commissioning",
     "Operations",
-    "Care and Maintenance",
-    "Decommissioning",
     "Closure",
+    "Post-Closure",
+    "Post-Issuance",
 ]
 
 
@@ -126,17 +129,17 @@ def extract_report_info_using_gpt(condition_text: str) -> str:
                         "description": (
                             "The category of report this condition requires. "
                             "'Compliance Notification': notifying the EAO of a non-compliance event, usually "
-                            "triggered 'As needed' with a short response window (e.g., 'Within 72 hours of "
+                            "triggered 'As Needed' with a short response window (e.g., 'Within 72 hours of "
                             "non-compliance'). "
                             "'Compliance Self-Report': a self-reported compliance status report, typically tied "
                             "to project phases and/or a fixed annual date. "
-                            "'Management Plan Report': a report on the ongoing STATUS, RESULTS, or "
+                            "'Management Plan Associated Report': a report on the ongoing STATUS, RESULTS, or "
                             "IMPLEMENTATION of a specific NAMED plan — see linked_management_plan_name. E.g. "
                             "periodic monitoring results tied to a management plan, or an implementation "
                             "status update. Do NOT use this for the plan's own development, initial "
                             "submission to the EAO, or later updates/revisions to the plan document itself — "
                             "that lifecycle is captured separately as a management plan deliverable, not a "
-                            "report. Only extract a Management Plan Report when something is submitted IN "
+                            "report. Only extract a Management Plan Associated Report when something is submitted IN "
                             "ADDITION to the plan document. "
                             "'Project Status Notification': a notification about project status — see "
                             "report_subtype. "
@@ -160,7 +163,7 @@ def extract_report_info_using_gpt(condition_text: str) -> str:
                       "linked_management_plan_name": {
                         "type": "string",
                         "description": (
-                            "Only applicable when report_type is 'Management Plan Report'. The name of the "
+                            "Only applicable when report_type is 'Management Plan Associated Report'. The name of the "
                             "specific plan this report is about (e.g., 'Aquatic Effects Monitoring Plan'), "
                             "written in title case. Null if this report is not tied to a specific named plan."
                         ),
@@ -198,14 +201,14 @@ def extract_report_info_using_gpt(condition_text: str) -> str:
                                 "enum": REPORT_FREQUENCIES,
                                 "description": (
                                     "How often the report must be submitted for this phase/occasion. Use "
-                                    "'As needed' when submission is triggered by an event (e.g., a "
+                                    "'As Needed' when submission is triggered by an event (e.g., a "
                                     "non-compliance, a contact change) rather than a fixed schedule — typical "
                                     "for Compliance Notification and Project Status Notification. Use "
-                                    "'One time' for a single submission tied to a milestone or phase. Use "
-                                    "'Annually' or 'Quarterly' for a fixed recurring schedule. Use 'Other' "
-                                    "only for Compliance Self-Report or Management Plan Report entries whose "
-                                    "schedule doesn't fit the above — describe the actual schedule in 'timing' "
-                                    "instead."
+                                    "'One Time' for a single submission tied to a milestone or phase. Use "
+                                    "'Annually', 'Semi-Annually', 'Quarterly', or 'Monthly' for a fixed "
+                                    "recurring schedule. Use 'Other' only for Compliance Self-Report or "
+                                    "Management Plan Associated Report entries whose schedule doesn't fit the "
+                                    "above — describe the actual schedule in 'timing' instead."
                                 ),
                               },
                               "timing": {

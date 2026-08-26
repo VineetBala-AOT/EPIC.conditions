@@ -34,4 +34,5 @@ class ReportSchema(BaseSchema):
     condition_id = fields.Int()
     report_type = fields.Str()
     name = fields.Str(allow_none=True)
+    recipients = fields.List(fields.Str(), allow_none=True)
     submissions = fields.List(fields.Nested(ReportSubmissionSchema))

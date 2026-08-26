@@ -1,5 +1,5 @@
 """Report model class."""
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import ARRAY, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from .base_model import BaseModel
@@ -16,6 +16,7 @@ class Report(BaseModel):
     condition_id = Column(Integer, ForeignKey('condition.conditions.id', ondelete='CASCADE'), nullable=False)
     report_type = Column(String, nullable=False)
     name = Column(Text, nullable=True)
+    recipients = Column(ARRAY(Text), nullable=True)
 
     submissions = relationship('ReportSubmission', back_populates='report', cascade='all, delete-orphan')
 

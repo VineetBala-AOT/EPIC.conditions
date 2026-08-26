@@ -11,8 +11,12 @@ from condition_api.models.condition_attribute import ConditionAttribute
 from condition_api.models.db import db
 from condition_api.models.document import Document
 from condition_api.models.management_plan import ManagementPlan
+from condition_api.models.report import Report
+from condition_api.models.report_submission import ReportSubmission
 from condition_api.models.subcondition import Subcondition
 from condition_api.utils.enums import ConditionType
+
+MANAGEMENT_PLAN_ASSOCIATED_REPORT_TYPE = "Management Plan Associated Report"
 
 
 ATTRIBUTE_EXTERNAL_KEYS = (
@@ -49,10 +53,16 @@ class ExtractionImportService:
         self.document_id = document_id
         self.payload = payload or {}
         self.attribute_keys = self._load_attribute_keys()
+        # Populated during import_conditions(): a report's linked_management_plan_name
+        # can reference a plan created by a *different* condition than the one the
+        # report belongs to, so all management plans must exist before any reports do.
+        self._management_plans_by_name: dict[str, ManagementPlan] = {}
 
     def import_conditions(self) -> None:
         """Insert extracted conditions for an existing project/document pair."""
         self._validate_targets()
+
+        processed_conditions: list[tuple[dict[str, Any], Condition]] = []
 
         for condition_data in self.payload.get("conditions", []):
             condition = self._create_condition(condition_data)
@@ -62,6 +72,10 @@ class ExtractionImportService:
                 parent_subcondition_id=None,
                 subconditions=condition_data.get("clauses") or condition_data.get("subconditions") or [],
             )
+            processed_conditions.append((condition_data, condition))
+
+        for condition_data, condition in processed_conditions:
+            self._create_reports(condition, condition_data.get("report_submissions", []))
 
     def _validate_targets(self) -> None:
         document = Document.query.filter_by(document_id=self.document_id).first()
@@ -153,6 +167,7 @@ class ExtractionImportService:
                 )
                 db.session.add(management_plan)
                 db.session.flush()
+                self._management_plans_by_name[self._normalize_name(management_plan.name)] = management_plan
 
             for external_key in ATTRIBUTE_EXTERNAL_KEYS:
                 attribute_key = self.attribute_keys.get(external_key)
@@ -185,6 +200,42 @@ class ExtractionImportService:
                         attribute_value=submission_time_value,
                         management_plan_id=management_plan.id if management_plan else None,
                     ))
+
+    def _create_reports(self, condition: Condition, reports_data: list[dict[str, Any]]) -> None:
+        for report_data in reports_data:
+            report_type = report_data.get("report_type")
+
+            linked_plan = None
+            if report_type == MANAGEMENT_PLAN_ASSOCIATED_REPORT_TYPE:
+                plan_name = report_data.get("linked_management_plan_name")
+                if plan_name:
+                    linked_plan = self._management_plans_by_name.get(self._normalize_name(plan_name))
+
+            report = Report(
+                condition_id=condition.id,
+                report_type=report_type,
+                recipients=self._list_or_none(report_data.get("recipients")),
+            )
+            db.session.add(report)
+            db.session.flush()
+            condition.requires_report = True
+
+            report_title = report_data.get("report_title")
+            for schedule_entry in report_data.get("submission_schedule", []):
+                db.session.add(ReportSubmission(
+                    report_id=report.id,
+                    phase=schedule_entry.get("phase"),
+                    frequency=schedule_entry.get("frequency"),
+                    timing=schedule_entry.get("timing"),
+                    report_submission_type=report_data.get("report_subtype"),
+                    is_approved=False,
+                    linked_management_plan_id=linked_plan.id if linked_plan else None,
+                    report_title=report_title,
+                ))
+
+    @staticmethod
+    def _normalize_name(value: str | None) -> str:
+        return (value or "").strip().lower()
 
     @staticmethod
     def _list_or_none(value: Any) -> list[Any] | None:

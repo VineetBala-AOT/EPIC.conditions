@@ -27,6 +27,7 @@ def _serialize_report(report):
         'condition_id': report.condition_id,
         'report_type': report.report_type,
         'name': report.name,
+        'recipients': report.recipients,
         'submissions': [_serialize_submission(s) for s in report.submissions],
     }
 
@@ -47,6 +48,7 @@ class ReportService:
             condition_id=condition_id,
             report_type=payload.get('report_type', ''),
             name=payload.get('name'),
+            recipients=payload.get('recipients'),
         )
         db.session.add(report)
         db.session.flush()
@@ -101,7 +103,7 @@ class ReportService:
         if not report:
             raise ValueError("Report not found.")
 
-        for field in ['report_type', 'name']:
+        for field in ['report_type', 'name', 'recipients']:
             if field in payload:
                 setattr(report, field, payload[field])
 
