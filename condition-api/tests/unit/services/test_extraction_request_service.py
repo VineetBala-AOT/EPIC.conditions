@@ -10,6 +10,8 @@ from condition_api.models import (
     ConditionAttribute,
     ExtractionRequest,
     ManagementPlan,
+    Report,
+    ReportSubmission,
     Subcondition,
     db,
 )
@@ -165,6 +167,105 @@ def test_import_request_loads_conditions_into_existing_document():
 
     attributes = db.session.query(ConditionAttribute).filter_by(condition_id=condition.id).all()
     assert len(attributes) >= 6
+
+
+def test_import_request_loads_reports_and_resolves_cross_condition_plan_link():
+    """A report can link to a management plan created by a different condition in the same document."""
+    auth_guid = TestJwtClaims.staff_admin_role['sub']
+    factory_user_model(auth_guid=auth_guid)
+    g.jwt_oidc_token_info = TestJwtClaims.staff_admin_role
+
+    project = factory_project_model(project_id=str(uuid.uuid4()))
+    doc_type = get_seeded_document_type("Certificate")
+    document = factory_document_model(project_id=project.project_id, document_type_id=doc_type.id)
+    request = ExtractionRequest(
+        project_id=project.project_id,
+        document_id=document.document_id,
+        document_type_id=doc_type.id,
+        document_label=document.document_label,
+        s3_url="condition_extraction_documents/test.pdf",
+        status="completed",
+        extracted_data={
+            "conditions": [
+                {
+                    "condition_number": 1,
+                    "condition_name": "Condition 1",
+                    "condition_text": "Prepare and implement the plan.",
+                    "deliverables": [
+                        {
+                            "is_plan": True,
+                            "deliverable_name": "Aquatic Effects Monitoring Plan",
+                        }
+                    ],
+                    "report_submissions": [],
+                },
+                {
+                    "condition_number": 12,
+                    "condition_name": "Condition 12",
+                    "condition_text": "Submit monitoring results annually.",
+                    "deliverables": [],
+                    "report_submissions": [
+                        {
+                            "report_type": "Management Plan Associated Report",
+                            "report_title": "Annual Aquatic Effects Monitoring Report",
+                            "linked_management_plan_name": "aquatic effects monitoring plan",
+                            "recipients": ["EAO", "MOE"],
+                            "submission_schedule": [
+                                {
+                                    "phase": "Operations",
+                                    "frequency": "Annually",
+                                    "timing": "By March 31 each year",
+                                }
+                            ],
+                        },
+                        {
+                            "report_type": "Compliance Notification",
+                            "report_title": "Non-Compliance Notification",
+                            "linked_management_plan_name": None,
+                            "recipients": [],
+                            "submission_schedule": [
+                                {
+                                    "phase": "All Phases",
+                                    "frequency": "As Needed",
+                                    "timing": "Within 72 hours of non-compliance",
+                                }
+                            ],
+                        },
+                    ],
+                },
+            ]
+        },
+    )
+    db.session.add(request)
+    db.session.commit()
+
+    ExtractionRequestService.import_request(request.id)
+
+    plan = db.session.query(ManagementPlan).filter_by(condition_id=(
+        db.session.query(Condition).filter_by(condition_number=1, document_id=document.document_id).one().id
+    )).one()
+    assert plan.name == "Aquatic Effects Monitoring Plan"
+
+    condition_12 = db.session.query(Condition).filter_by(condition_number=12, document_id=document.document_id).one()
+    assert condition_12.requires_report is True
+
+    reports = db.session.query(Report).filter_by(condition_id=condition_12.id).order_by(Report.id.asc()).all()
+    assert len(reports) == 2
+
+    mp_report = reports[0]
+    assert mp_report.report_type == "Management Plan Associated Report"
+    assert mp_report.recipients == ["EAO", "MOE"]
+
+    mp_submission = db.session.query(ReportSubmission).filter_by(report_id=mp_report.id).one()
+    assert mp_submission.phase == "Operations"
+    assert mp_submission.frequency == "Annually"
+    assert mp_submission.report_title == "Annual Aquatic Effects Monitoring Report"
+    assert mp_submission.linked_management_plan_id == plan.id
+
+    cn_report = reports[1]
+    assert cn_report.report_type == "Compliance Notification"
+    cn_submission = db.session.query(ReportSubmission).filter_by(report_id=cn_report.id).one()
+    assert cn_submission.linked_management_plan_id is None
 
 
 def test_get_all_adds_queue_position_and_estimates(monkeypatch):
