@@ -76,7 +76,7 @@ def test_get_attribute_keys_validation_error(client, auth_user, monkeypatch):
     factory_management_plan_model(condition_id)
 
     # Monkeypatch service to raise ValidationError
-    def mock_get_attributes(condition_id, management_plan_id):
+    def mock_get_attributes(condition_id, management_plan_id, iem_terms_id):
         raise ValidationError("Bad data")
 
     monkeypatch.setattr(

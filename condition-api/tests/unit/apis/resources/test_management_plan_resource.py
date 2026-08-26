@@ -8,7 +8,6 @@ import pytest
 from http import HTTPStatus
 
 from condition_api import get_named_config
-from condition_api.models.management_plan import ManagementPlan
 from condition_api.services.management_plan import ManagementPlanService
 from tests.utilities.factory_scenarios import TestJwtClaims
 from tests.utilities.factory_utils import (
@@ -134,10 +133,10 @@ def test_delete_management_plan_bad_request(client, auth_user, mocker):
     )
     management_plan = factory_management_plan_model(condition_id=condition.id)
 
-    # Mock delete_by_id to raise ValueError
+    # Mock delete_management_plan (the method the resource actually calls) to raise ValueError
     mocker.patch.object(
-        ManagementPlan,
-        "delete_by_id",
+        ManagementPlanService,
+        "delete_management_plan",
         side_effect=ValueError("Invalid delete")
     )
 

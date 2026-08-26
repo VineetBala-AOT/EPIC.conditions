@@ -53,15 +53,15 @@ class ExtractionImportService:
         self.document_id = document_id
         self.payload = payload or {}
         self.attribute_keys = self._load_attribute_keys()
+        # Populated during import_conditions(): a report's linked_management_plan_name
+        # can reference a plan created by a *different* condition than the one the
+        # report belongs to, so all management plans must exist before any reports do.
+        self._management_plans_by_name: dict[str, ManagementPlan] = {}
 
     def import_conditions(self) -> None:
         """Insert extracted conditions for an existing project/document pair."""
         self._validate_targets()
 
-        # Two passes: a report's linked_management_plan_name can reference a plan
-        # created by a *different* condition than the one the report belongs to,
-        # so all management plans must exist before any reports are created.
-        self._management_plans_by_name: dict[str, ManagementPlan] = {}
         processed_conditions: list[tuple[dict[str, Any], Condition]] = []
 
         for condition_data in self.payload.get("conditions", []):

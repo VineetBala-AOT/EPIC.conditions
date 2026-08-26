@@ -109,7 +109,8 @@ def test_patch_condition_attribute_validation_error(client, monkeypatch, auth_us
     }
 
     # Mock the schema load method to raise a ValidationError
-    def mock_upsert_condition_attribute(requires_management_plan, condition_id, conditions_attributes_data):
+    def mock_upsert_condition_attribute(requires_management_plan, condition_id, conditions_attributes_data,
+                                        requires_iem_terms=False):
         raise ValidationError("Bad data")
 
     monkeypatch.setattr(
