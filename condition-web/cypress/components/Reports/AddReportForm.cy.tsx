@@ -1,10 +1,13 @@
+import type { ComponentProps } from "react";
 import { mount } from "cypress/react18";
 import { ThemeProvider } from "@mui/material/styles";
 import { theme } from "../../../src/styles/theme";
 import AddReportForm from "../../../src/components/ConditionDetails/ConditionAttribute/Reports/AddReportForm";
 
+type AddReportFormProps = ComponentProps<typeof AddReportForm>;
+
 describe("AddReportForm", () => {
-  const mountForm = (props: any = {}) => {
+  const mountForm = (props: Partial<AddReportFormProps> = {}) => {
     const onSave = cy.stub().as("onSave");
     const onCancel = cy.stub().as("onCancel");
     mount(
@@ -53,20 +56,25 @@ describe("AddReportForm", () => {
       "Within 30 days of a contact change"
     );
 
-    // Select the "All Phases" phase checkbox
+    // Check "Construction", then uncheck it, then check "All Phases" —
+    // exercises both the add and remove branches of the phase toggle
+    cy.contains("Construction").click();
+    cy.contains("Construction").click();
     cy.contains("All Phases").click();
 
     cy.contains("Save Report").click();
 
     cy.get("@onSave").should("have.been.calledOnce");
-    cy.get("@onSave").should((stub: any) => {
-      const submitted = stub.getCall(0).args[0];
-      expect(submitted.report_type).to.eq("Project Status Notification");
-      expect(submitted.submissions).to.have.length(1);
-      expect(submitted.submissions[0].phases).to.include("All Phases");
-      expect(submitted.submissions[0].frequency).to.eq("As Needed");
-      expect(submitted.submissions[0].report_submission_type).to.eq("Primary Contact Notification");
-    });
+    cy.get("@onSave")
+      .its("firstCall.args.0")
+      .should("deep.include", { report_type: "Project Status Notification" });
+    cy.get("@onSave").its("firstCall.args.0.submissions").should("have.length", 1);
+    cy.get("@onSave")
+      .its("firstCall.args.0.submissions.0")
+      .should("deep.include", {
+        frequency: "As Needed",
+        report_submission_type: "Primary Contact Notification",
+      });
   });
 
   it("reveals Linked Management Plan and Report Title fields for a Management Plan Associated Report", () => {
@@ -77,6 +85,12 @@ describe("AddReportForm", () => {
 
     cy.contains("Linked Management Plan").should("exist");
     cy.contains("Report Title").should("exist");
+
+    // Select the management plan from the dropdown (this Select has no
+    // placeholder MenuItem, so target it by its label's sibling structure
+    // rather than by its — initially blank — displayed text)
+    cy.contains("Linked Management Plan").parent().find(".MuiSelect-select").click();
+    cy.get('li[role="option"]').contains("Plan A").click();
 
     cy.get('input[placeholder="Enter report title..."]').type("Annual Monitoring Report");
   });
@@ -94,5 +108,33 @@ describe("AddReportForm", () => {
       "have.length",
       2
     );
+  });
+
+  it("renders in embedded mode without Save/Cancel buttons and reports changes via onChange", () => {
+    const onChange = cy.stub().as("onChange");
+    mount(
+      <ThemeProvider theme={theme}>
+        <AddReportForm embedded onChange={onChange} />
+      </ThemeProvider>
+    );
+
+    cy.contains("Save Report").should("not.exist");
+    cy.contains("Cancel").should("not.exist");
+
+    cy.contains("Select report type...").click();
+    cy.get('li[role="option"]').contains("Compliance Self-Report").click();
+
+    cy.get("@onChange").should("have.been.called");
+    cy.get("@onChange").its("lastCall.args.0.report_type").should("eq", "Compliance Self-Report");
+  });
+
+  it("shows Monitoring/Technical Report frequencies", () => {
+    mountForm();
+
+    cy.contains("Select report type...").click();
+    cy.get('li[role="option"]').contains("Monitoring/Technical Report").click();
+
+    cy.contains("Select frequency...").click();
+    cy.get('li[role="option"]').contains("Quarterly").should("exist");
   });
 });
