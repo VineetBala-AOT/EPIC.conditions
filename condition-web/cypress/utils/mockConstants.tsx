@@ -1,3 +1,4 @@
+import type { AuthContextProps } from "react-oidc-context";
 import { EPIC_CONDITION_ROLE } from "../../src/models/Role";
 import { mockAccessToken } from "./testUtils";
 
@@ -63,7 +64,7 @@ export const mockAuthentication = {
   /* eslint-enable @typescript-eslint/no-explicit-any */
   querySessionStatus: () => Promise.resolve(null),
   revokeTokens: () => Promise.resolve(),
-};
+} as unknown as AuthContextProps;
 
 export const mockStaffAccount = {
   isLoading: false,
