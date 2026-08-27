@@ -160,7 +160,7 @@ describe("conditions details page", () => {
     cy.contains("BC Ministry of Environment").should("exist");
 
     // Click the button to approve the management plan attributes
-    cy.contains("Approve Management Plan Attributes").click();
+    cy.contains("Confirm Management Plan Attributes").click();
 
     // Wait for the PATCH request to complete and assert response
     cy.wait("@approveManagementPlan").then((interception) => {
@@ -171,6 +171,6 @@ describe("conditions details page", () => {
 
     // Assert that the condition attribute is approved
     cy.contains("Confirmed").should("exist");
-    cy.contains("Un-approve Management Plan Attributes").should("exist");
+    cy.contains("Un-confirm Management Plan Attributes").should("exist");
   });
 });

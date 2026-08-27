@@ -88,6 +88,7 @@ export const mockProjects = [
     documents: [
       {
         amendment_count: 1,
+        parent_document_count: 1,
         date_issued: "2024-01-11",
         document_category: "Certificate and Amendments",
         document_category_id: "1",
