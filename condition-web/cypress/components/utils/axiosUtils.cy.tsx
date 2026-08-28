@@ -1,7 +1,7 @@
 /// <reference types="cypress" />
 
 import type { AxiosError } from "axios";
-import { requestAxios } from "../../../src/utils/axiosUtils";
+import { requestAxios, submitRequest } from "../../../src/utils/axiosUtils";
 
 describe("requestAxios", () => {
   it("resolves with the response data on success", () => {
@@ -52,5 +52,15 @@ describe("requestAxios", () => {
         (err: Error) => err.message
       )
     ).should("be.a", "string");
+  });
+});
+
+describe("submitRequest", () => {
+  it("throws before making a request when no access token is stored", () => {
+    cy.window().then((win) => win.sessionStorage.clear());
+
+    cy.wrap(
+      submitRequest({ url: "/whatever", method: "get" }).catch((err: Error) => err.message)
+    ).should("eq", "No access token");
   });
 });
