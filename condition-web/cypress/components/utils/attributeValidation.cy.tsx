@@ -153,4 +153,48 @@ describe("validateRequiredAttributes", () => {
     });
     expect(result).to.be.false;
   });
+
+  it("treats an empty array value as empty", () => {
+    const attributes = managementRequiredKeys.map((key) => attr(key, [] as unknown as string));
+    const result = validateRequiredAttributes({
+      attributes,
+      isManagementRequired: true,
+      isConsultationRequired: false,
+      isIEMRequired: false,
+    });
+    expect(result).to.be.false;
+  });
+
+  it("treats a non-empty array value as populated", () => {
+    const attributes = managementRequiredKeys.map((key) => attr(key, ["some value"] as unknown as string));
+    const result = validateRequiredAttributes({
+      attributes,
+      isManagementRequired: true,
+      isConsultationRequired: false,
+      isIEMRequired: false,
+    });
+    expect(result).to.be.true;
+  });
+
+  it("treats an empty object value as empty", () => {
+    const attributes = managementRequiredKeys.map((key) => attr(key, {} as unknown as string));
+    const result = validateRequiredAttributes({
+      attributes,
+      isManagementRequired: true,
+      isConsultationRequired: false,
+      isIEMRequired: false,
+    });
+    expect(result).to.be.false;
+  });
+
+  it("treats a non-empty object value as populated", () => {
+    const attributes = managementRequiredKeys.map((key) => attr(key, { a: 1 } as unknown as string));
+    const result = validateRequiredAttributes({
+      attributes,
+      isManagementRequired: true,
+      isConsultationRequired: false,
+      isIEMRequired: false,
+    });
+    expect(result).to.be.true;
+  });
 });
