@@ -25,6 +25,14 @@ describe("extractRequirementFlags", () => {
     expect(isIEMRequired).to.be.false;
   });
 
+  it("returns false flags when attributes are present but none match the target keys", () => {
+    const { isConsultationRequired, isIEMRequired } = extractRequirementFlags([
+      attr("some_unrelated_key", "true"),
+    ]);
+    expect(isConsultationRequired).to.be.false;
+    expect(isIEMRequired).to.be.false;
+  });
+
   it("detects consultation required when the attribute value is 'true'", () => {
     const { isConsultationRequired } = extractRequirementFlags([
       attr(CONDITION_KEYS.REQUIRES_CONSULTATION, "true"),
