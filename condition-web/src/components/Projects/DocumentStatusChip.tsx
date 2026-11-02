@@ -38,7 +38,11 @@ export default function DocumentStatusChip({
 }: {
   status: DocumentStatus;
 }) {
-  const style = statusStyles[status];
+  // Guard against unexpected/undefined status values. Callers pass
+  // `String(is_approved) as DocumentStatus`, so a null/undefined approval
+  // becomes "undefined"/"null" — not a key here — which would otherwise crash
+  // on `style.sx`. Fall back to the un-approved ("Awaiting Confirmation") style.
+  const style = statusStyles[status] ?? statusStyles.false;
 
   return (
     <Chip

@@ -20,6 +20,7 @@ from condition_api.models.condition_attribute import ConditionAttribute
 from condition_api.models.db import db
 from condition_api.models.iem_terms import IEMTerms
 from condition_api.models.management_plan import ManagementPlan
+from condition_api.services.condition_approval_service import ConditionApprovalService
 from condition_api.utils.enums import AttributeKeys, IEMTermsConfig, ManagementPlanConfig
 
 
@@ -52,6 +53,7 @@ class ConditionAttributeService:
                 existing_plan = ManagementPlan(condition_id=condition_id, name=plan_name)
                 db.session.add(existing_plan)
                 db.session.flush()
+                ConditionApprovalService.recompute_attributes_approved(condition_id)
 
             for attr in plan.get("attributes", []):
                 ConditionAttributeService._upsert_single_attribute(
@@ -80,6 +82,7 @@ class ConditionAttributeService:
                 existing_terms = IEMTerms(condition_id=condition_id, name=terms_name)
                 db.session.add(existing_terms)
                 db.session.flush()
+                ConditionApprovalService.recompute_attributes_approved(condition_id)
 
             for attr in terms.get("attributes", []):
                 ConditionAttributeService._upsert_single_attribute(
@@ -409,6 +412,9 @@ class ConditionAttributeService:
         )
         if plan_query.count() > 0:
             plan_query.delete()
+
+        db.session.flush()
+        ConditionApprovalService.recompute_attributes_approved(condition_id)
 
         attr_query = db.session.query(ConditionAttribute).filter(
             ConditionAttribute.condition_id == condition_id

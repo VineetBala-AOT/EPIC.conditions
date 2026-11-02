@@ -191,6 +191,7 @@ const ConditionAttribute = memo(
           const savedPlans = response?.management_plans ?? updatedPlans;
           setCondition((prev) => ({
             ...prev,
+            is_condition_attributes_approved: false,
             condition_attributes: {
               independent_attributes: prev.condition_attributes?.independent_attributes ?? [],
               management_plans: savedPlans,
@@ -248,6 +249,7 @@ const ConditionAttribute = memo(
           const savedTerms = response?.iem_terms ?? updatedTerms;
           setCondition((prev) => ({
             ...prev,
+            is_condition_attributes_approved: false,
             condition_attributes: {
               independent_attributes: prev.condition_attributes?.independent_attributes ?? [],
               management_plans: response?.management_plans ?? prev.condition_attributes?.management_plans ?? [],
@@ -276,7 +278,11 @@ const ConditionAttribute = memo(
       if (addingReport) {
         try {
           await createReport(reportFormValues as never);
-          setCondition((prev) => ({ ...prev, requires_report: true }));
+          setCondition((prev) => ({
+            ...prev,
+            requires_report: true,
+            is_condition_attributes_approved: false,
+          }));
           setReportFormValues(null);
           setReportFormValid(false);
           notify.success("Report added successfully");

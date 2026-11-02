@@ -36,7 +36,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import ErrorMessage from "../ErrorMessage";
 import { ApproveButton } from "../ApproveButton";
 import { validateRequiredAttributes } from "@/utils/attributeValidation";
-import { useUpdateConditionDetails } from "@/hooks/api/useConditions";
 import DeleteIcon from "@/components/Shared/Icons/DeleteIcon";
 import AddIcon from '@mui/icons-material/Add';
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
@@ -168,6 +167,7 @@ const ManagementPlanAccordion: React.FC<Props> = ({
       condition_attribute: {
         independent_attributes: condition.condition_attributes?.independent_attributes || [],
         management_plans: updatedPlans,
+        iem_terms: condition.condition_attributes?.iem_terms || [],
       },
     });
 
@@ -192,7 +192,7 @@ const ManagementPlanAccordion: React.FC<Props> = ({
   const {
     mutateAsync: updatePlanName,
     isPending: isUpdating,
-  } = usePatchManagementPlan(attributes.id, {
+  } = usePatchManagementPlan(attributes.id, condition.condition_id, {
     onSuccess: () => {
       notify.success("Management plan name updated successfully");
     },
@@ -200,34 +200,6 @@ const ManagementPlanAccordion: React.FC<Props> = ({
       notify.error("Failed to update management plan name");
     },
   });
-
-  const onApproveFailure = () => {
-    notify.error("Failed to approve condition attribute");
-  };
-
-  const onApproveSuccess = () => {
-    notify.success("Condition attribute successfully approved");
-  };
-
-  const { data: conditionDetails, mutate: updateConditionDetails } = useUpdateConditionDetails(
-    false,
-    false,
-    condition.condition_id,
-      {
-        onSuccess: onApproveSuccess,
-        onError: onApproveFailure,
-      }
-  );
-
-  useEffect(() => {
-    if (conditionDetails) {
-        setCondition((prevCondition) => ({
-            ...prevCondition,
-            ...conditionDetails,
-            subconditions: prevCondition.subconditions
-        }));
-    }
-  }, [conditionDetails, setCondition]);
 
   useEffect(() => {
     if (!attributes?.attributes) {
@@ -301,6 +273,7 @@ const ManagementPlanAccordion: React.FC<Props> = ({
       condition_attributes: {
         ...prev.condition_attributes,
         independent_attributes: prev.condition_attributes?.independent_attributes ?? [],
+        iem_terms: prev.condition_attributes?.iem_terms ?? [],
         management_plans: (prev.condition_attributes?.management_plans || []).map((plan) => {
           if (plan.id === attributes.id) {
             return {
@@ -332,6 +305,7 @@ const ManagementPlanAccordion: React.FC<Props> = ({
           condition_attributes: {
             ...prev.condition_attributes,
             independent_attributes: prev.condition_attributes?.independent_attributes ?? [],
+            iem_terms: prev.condition_attributes?.iem_terms ?? [],
             management_plans: updatedPlans,
           },
           subconditions: prev.subconditions,
@@ -416,26 +390,11 @@ const ManagementPlanAccordion: React.FC<Props> = ({
     setConditionAttributeError(false);
 
     const currentApproval = attributes.is_approved;
-    await handleUpdatePlan(
-      { is_approved: !currentApproval },
-      () => {
-        const updatedPlans = condition.condition_attributes?.management_plans || [];
-
-        if (updatedPlans.length === 0) return;
-
-        const allApproved = updatedPlans.every((plan) => plan.id === attributes.id
-          ? !currentApproval // this one just got toggled
-          : plan.is_approved
-        );
-
-        if (condition.is_condition_attributes_approved !== allApproved) {
-          updateConditionDetails({
-            is_condition_attributes_approved: allApproved,
-          });
-        }
-      }
-    );
-
+    // The backend recomputes condition.is_condition_attributes_approved from
+    // every required package type whenever a plan's approval changes; the
+    // CONDITIONSDETAIL invalidation inside usePatchManagementPlan refreshes it
+    // here, so no local recompute is needed.
+    await handleUpdatePlan({ is_approved: !currentApproval });
   };
 
   const handleSave = async (updatedAttribute: IndependentAttributeModel) => {
@@ -454,6 +413,7 @@ const ManagementPlanAccordion: React.FC<Props> = ({
     const updatedConditionAttributes = {
       independent_attributes: condition.condition_attributes?.independent_attributes || [],
       management_plans: updatedPlans,
+      iem_terms: condition.condition_attributes?.iem_terms || [],
     };
   
     setCondition((prev) => ({
@@ -617,7 +577,7 @@ const ManagementPlanAccordion: React.FC<Props> = ({
               marginTop="8px"
               alignItems="flex-end"
             >
-              {canManage && (
+              {canManage && !attributes.is_approved && (
                 <Tooltip title="Delete Management Plan">
                   <IconButton
                     onClick={(e) => {

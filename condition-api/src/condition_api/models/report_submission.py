@@ -3,7 +3,6 @@ from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import relationship
 
 from .base_model import BaseModel
-from .db import db
 
 
 class ReportSubmission(BaseModel):
@@ -33,13 +32,3 @@ class ReportSubmission(BaseModel):
     def get_by_report_id(cls, report_id):
         """Get submissions by report ID."""
         return cls.query.filter_by(report_id=report_id).all()
-
-    @classmethod
-    def delete_by_id(cls, submission_id):
-        """Delete a submission by its ID."""
-        submission = cls.query.filter_by(id=submission_id).one_or_none()
-        if submission:
-            db.session.delete(submission)
-            db.session.commit()
-            return True
-        return False

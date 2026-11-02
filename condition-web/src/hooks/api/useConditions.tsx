@@ -8,7 +8,7 @@ import { submitRequest } from "@/utils/axiosUtils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Options } from "./types";
 import { notify } from "@/components/Shared/Snackbar/snackbarStore";
-import { defaultUseQueryOptions, QUERY_KEY } from "./constants";
+import { defaultUseQueryOptions, invalidateConditionApprovalCaches, QUERY_KEY } from "./constants";
 import { HTTP_STATUS_CODES } from "../../hooks/api/constants";
 
 const fetchConditions = (
@@ -39,6 +39,11 @@ export const useGetConditions = (
     queryFn: () => fetchConditions(includeSubconditions, projectId, documentId, activeOnly),
     enabled: Boolean(projectId && documentId && shouldLoad),
     ...defaultUseQueryOptions,
+    // Mutations on the condition details page invalidate this query while
+    // this listing isn't mounted, which only marks it stale — it won't
+    // refetch on remount with the default's refetchOnMount: false. Override
+    // so navigating back here always picks up the latest approval status.
+    refetchOnMount: true,
   });
 };
 
@@ -129,9 +134,10 @@ export const useCreateCondition = (
       return createCondition(projectId, documentId, allowDuplicateCondition, conditionDetails);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [QUERY_KEY.CONDITIONS, projectId, documentId],
-      });
+      // A new condition changes the document's "Data Entry Required" rollup
+      // on the documents/projects/consolidated pages, not just this
+      // document's own condition listing.
+      invalidateConditionApprovalCaches(queryClient, projectId);
       notify.success("Condition created successfully")
     },
     onError: (error: { response?: { data?: { message?: string }; status?: number } }) => {
@@ -249,6 +255,7 @@ export const useSaveNewCondition = (
   projectId?: string,
   documentId?: string,
 ) => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (params: { conditionDetails: ConditionModel; allowDuplicateCondition?: boolean }) => {
       const { conditionDetails, allowDuplicateCondition = false } = params;
@@ -259,6 +266,12 @@ export const useSaveNewCondition = (
         return Promise.reject(new Error("Document ID is required"));
       }
       return saveNewCondition(projectId, documentId, allowDuplicateCondition, conditionDetails);
+    },
+    onSuccess: () => {
+      // A new condition changes the document's "Data Entry Required" rollup
+      // on the documents/projects/consolidated pages, not just this
+      // document's own condition listing.
+      invalidateConditionApprovalCaches(queryClient, projectId);
     },
   });
 };

@@ -9,6 +9,7 @@ from http import HTTPStatus
 import secure
 from flask import Flask, current_app, g, request
 from flask_cors import CORS
+from flask_jwt_oidc.exceptions import AuthError
 
 from condition_api.auth import jwt
 from condition_api.config import get_named_config
@@ -21,7 +22,11 @@ from condition_api.utils.util import allowedorigins
 csp = (
     secure.ContentSecurityPolicy()
     .default_src("'self'")
-    .script_src("'self' 'unsafe-inline'")
+    # No 'unsafe-inline' for scripts: the API serves JSON (and user-influenced
+    # strings consumed by the web app), so inline-script execution should never
+    # be permitted. (Note: this disables the inline init of the flask-restx
+    # Swagger UI page where CSP is enforced; the API itself is unaffected.)
+    .script_src("'self'")
     .style_src("'self' 'unsafe-inline'")
     .img_src("'self' data:")
     .object_src("'self'")
@@ -89,6 +94,19 @@ def create_app(run_mode=os.getenv('FLASK_ENV', 'development')):
         response.headers['Cross-Origin-Opener-Policy'] = '*'
         response.headers['Cross-Origin-Embedder-Policy'] = 'unsafe-none'
         return response
+
+    @app.errorhandler(AuthError)
+    def handle_auth_error(err):
+        """Map authentication/authorization failures to their HTTP status.
+
+        Without this, an invalid/missing token raised by the auth layer falls
+        through to the generic Exception handler and surfaces as 500, masking
+        genuine 401/403 auth failures from monitoring.
+        """
+        status_code = getattr(err, "status_code", HTTPStatus.UNAUTHORIZED)
+        current_app.logger.info("Auth failure (%s): %s", status_code, getattr(err, "error", err))
+        body = getattr(err, "error", None) or {"message": "Unauthorized"}
+        return body, status_code
 
     @app.errorhandler(Exception)
     def handle_error(err):

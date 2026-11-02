@@ -1,11 +1,14 @@
 import { submitRequest } from "@/utils/axiosUtils";
 import { useMutation } from "@tanstack/react-query";
+import { useInvalidateConditionApprovalCaches } from "./useInvalidateConditionApprovalCaches";
 import { Options } from "./types";
 
 export const usePatchManagementPlan = (
     planId?: string,
+    conditionId?: number,
     options?: Options
   ) => {
+    const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
     return useMutation({
       mutationFn: (payload: Partial<{ name: string; is_approved: boolean }>) => {
         if (!planId) {
@@ -18,6 +21,16 @@ export const usePatchManagementPlan = (
         });
       },
       ...options,
+      onSuccess: (data) => {
+        // The condition's approval flag may have been recomputed server-side
+        // (e.g. approving/unapproving this plan) — refresh condition details,
+        // the document listing, and the consolidated conditions page so they
+        // all pick up the authoritative value without a manual refresh.
+        if (conditionId) {
+          invalidateApprovalCaches();
+        }
+        options?.onSuccess?.(data);
+      },
     });
   };
 
@@ -28,7 +41,8 @@ const removeManagementPlan = (planId: string) => {
   });
 };
 
-export const useRemoveManagementPlan = (options?: Options) => {
+export const useRemoveManagementPlan = (conditionId?: number, options?: Options) => {
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: (planId: string) => {
       if (!planId) {
@@ -37,5 +51,11 @@ export const useRemoveManagementPlan = (options?: Options) => {
       return removeManagementPlan(planId);
     },
     ...options,
+    onSuccess: (data) => {
+      if (conditionId) {
+        invalidateApprovalCaches();
+      }
+      options?.onSuccess?.(data);
+    },
   });
 };

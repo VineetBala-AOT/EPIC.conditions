@@ -5,6 +5,7 @@ from condition_api.models.db import db
 from condition_api.models.management_plan import ManagementPlan
 from condition_api.models.report import Report
 from condition_api.models.report_submission import ReportSubmission
+from condition_api.services.condition_approval_service import ConditionApprovalService
 
 
 def _serialize_submission_external(submission, plan_by_id):
@@ -25,12 +26,16 @@ def _serialize_submission_external(submission, plan_by_id):
 
 
 def _serialize_report_external(report, condition, plan_by_id):
+    # Only expose individually-approved submissions. A newly-added (unapproved)
+    # submission must not appear externally, while the already-approved ones on
+    # the same report stay available.
+    approved_submissions = [s for s in report.submissions if s.is_approved]
     return {
         'id': report.id,
         'condition_name': condition.condition_name,
         'condition_number': condition.condition_number,
         'report_type': report.report_type,
-        'submissions': [_serialize_submission_external(s, plan_by_id) for s in report.submissions],
+        'submissions': [_serialize_submission_external(s, plan_by_id) for s in approved_submissions],
     }
 
 
@@ -71,14 +76,17 @@ class ReportService:
 
     @staticmethod
     def get_approved_reports_by_project(project_id):
-        """Fetch all reports (with submissions) for approved conditions in a project.
+        """Fetch all reports (with approved submissions) for published conditions in a project.
 
-        For external consumption: only includes reports belonging to conditions that
-        are active and have cleared the same approval gate as the external
-        consolidated-conditions endpoint (is_active, is_approved,
-        is_condition_attributes_approved, is_topic_tags_approved all True) — which, by
-        construction, means every submission on these reports is itself already
-        approved too.
+        For external consumption: includes reports belonging to conditions that are
+        active and published externally — the same gate as the external
+        consolidated-conditions endpoint (is_active, is_approved, is_topic_tags_approved).
+        We intentionally do NOT require is_condition_attributes_approved: that flag is
+        the AND of every attribute package and drops to "awaiting" the moment a new
+        draft package/submission is added, which must not withdraw a condition's
+        already-approved reports. Each report is then filtered to its individually
+        approved submissions (see _serialize_report_external), and reports left with no
+        approved submissions are dropped.
         """
         reports = (
             Report.query
@@ -87,7 +95,6 @@ class ReportService:
                 Condition.project_id == project_id,
                 Condition.is_active.is_(True),
                 Condition.is_approved.is_(True),
-                Condition.is_condition_attributes_approved.is_(True),
                 Condition.is_topic_tags_approved.is_(True),
             )
             .all()
@@ -112,10 +119,12 @@ class ReportService:
             if plan_ids else {}
         )
 
-        return [
+        serialized = [
             _serialize_report_external(r, condition_by_id[r.condition_id], plan_by_id)
             for r in reports
         ]
+        # Drop reports that have no approved submissions to expose externally.
+        return [r for r in serialized if r["submissions"]]
 
     @staticmethod
     def create_report(condition_id, payload):
@@ -151,6 +160,8 @@ class ReportService:
         if condition:
             condition.requires_report = True
 
+        db.session.flush()
+        ConditionApprovalService.recompute_attributes_approved(condition_id)
         db.session.commit()
         db.session.refresh(report)
         return _serialize_report(report)
@@ -169,6 +180,7 @@ class ReportService:
             condition = Condition.query.get(condition_id)
             if condition:
                 condition.requires_report = False
+        ConditionApprovalService.recompute_attributes_approved(condition_id)
         db.session.commit()
         return True
 
@@ -202,15 +214,7 @@ class ReportService:
         if 'is_approved' in payload:
             report = Report.find_by_id(submission.report_id)
             if report:
-                condition = Condition.query.get(report.condition_id)
-                all_reports = Report.get_by_condition_id(report.condition_id)
-                all_approved = bool(all_reports) and all(
-                    s.is_approved
-                    for r in all_reports
-                    for s in r.submissions
-                )
-                if condition:
-                    condition.is_condition_attributes_approved = all_approved
+                ConditionApprovalService.recompute_attributes_approved(report.condition_id)
 
         db.session.commit()
         return _serialize_submission(submission)
@@ -237,5 +241,22 @@ class ReportService:
             db.session.add(sub)
             new_submissions.append(sub)
 
+        db.session.flush()
+        ConditionApprovalService.recompute_attributes_approved(report.condition_id)
         db.session.commit()
         return [_serialize_submission(s) for s in new_submissions]
+
+    @staticmethod
+    def delete_submission(submission_id):
+        """Delete a report submission and recompute the condition's approval flag."""
+        submission = ReportSubmission.query.filter_by(id=submission_id).one_or_none()
+        if not submission:
+            return False
+        report = Report.find_by_id(submission.report_id)
+        condition_id = report.condition_id if report else None
+        db.session.delete(submission)
+        db.session.flush()
+        if condition_id:
+            ConditionApprovalService.recompute_attributes_approved(condition_id)
+        db.session.commit()
+        return True

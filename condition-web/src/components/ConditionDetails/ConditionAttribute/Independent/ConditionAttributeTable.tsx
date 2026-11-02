@@ -23,6 +23,7 @@ import ConditionAttributeRow from "./ConditionAttributeRow";
 import { useQueryClient } from "@tanstack/react-query";
 import {  CONDITION_KEYS, SELECT_OPTIONS } from "../Constants";
 import { QUERY_KEY } from "@/hooks/api/constants";
+import { useInvalidateConditionApprovalCaches } from "@/hooks/api/useInvalidateConditionApprovalCaches";
 import DynamicFieldRenderer from "../DynamicFieldRenderer";
 import AttributeModal from "../AttributeModal";
 import { useGetAttributes } from "@/hooks/api/useAttributeKey";
@@ -43,6 +44,7 @@ const ConditionAttributeTable = memo(({
     origin
   }: ConditionAttributeTableProps) => {
     const queryClient = useQueryClient();
+    const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
     const canManage = useHasAllowedRoles([KeycloakRoles.MANAGE_CONDITIONS]);
     const [conditionAttributeError, setConditionAttributeError] = useState(false);
     const [isAnyRowEditing, setIsAnyRowEditing] = useState(false);
@@ -98,6 +100,10 @@ const ConditionAttributeTable = memo(({
   
     const onApproveSuccess = () => {
         notify.success("Condition attribute successfully approved");
+        // This toggles is_condition_attributes_approved directly, which can
+        // change the combined approval status shown on every listing page
+        // (document listing, consolidated conditions, documents, projects).
+        invalidateApprovalCaches();
     };
   
     const { data: conditionDetails, mutate: updateConditionDetails } = useUpdateConditionDetails(
@@ -127,6 +133,7 @@ const ConditionAttributeTable = memo(({
           condition_attributes: {
             independent_attributes: conditionAttributeDetails.independent_attributes,
             management_plans: prevCondition.condition_attributes?.management_plans ?? [],
+            iem_terms: prevCondition.condition_attributes?.iem_terms ?? [],
           },
         }));
       }
@@ -208,6 +215,7 @@ const ConditionAttributeTable = memo(({
             (attr: IndependentAttributeModel) => attr.id !== attributeToDelete.id
           ),
           management_plans: prevCondition.condition_attributes?.management_plans || [],
+          iem_terms: prevCondition.condition_attributes?.iem_terms || [],
         },
       }));
     };
@@ -222,6 +230,7 @@ const ConditionAttributeTable = memo(({
       const updatedConditionAttributes = {
         independent_attributes: updatedIndependentAttributes,
         management_plans: condition.condition_attributes?.management_plans || [],
+        iem_terms: condition.condition_attributes?.iem_terms || [],
       };
     
       setCondition((prevCondition) => ({
@@ -323,6 +332,7 @@ const ConditionAttributeTable = memo(({
             },
           ],
           management_plans: [],
+          iem_terms: [],
         },
       });
 

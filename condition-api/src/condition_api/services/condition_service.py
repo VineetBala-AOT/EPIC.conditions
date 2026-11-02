@@ -20,6 +20,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
+from markupsafe import escape
 from sqlalchemy import and_, case, extract, func, not_
 from sqlalchemy.orm import aliased
 
@@ -370,6 +371,28 @@ class ConditionService:
         if "subconditions" in conditions_data:
             ConditionService._update_subconditions(condition_id, conditions_data.get("subconditions") or [])
 
+        # A condition with no required attribute packages (management plan, IEM
+        # terms, or report) and no independent attributes has nothing to approve in
+        # the attributes dimension. Without this, its is_condition_attributes_approved
+        # flag is never set and the condition stays "Awaiting Confirmation" even after
+        # the condition and its tags are confirmed. Package-based conditions are
+        # handled by ConditionApprovalService on package changes, and conditions with
+        # independent attributes keep their manual attribute-approval toggle, so both
+        # are excluded here.
+        requires_any_package = bool(
+            condition.requires_management_plan
+            or condition.requires_iem_terms
+            or condition.requires_report
+        )
+        if not requires_any_package:
+            has_independent_attribute = db.session.query(ConditionAttribute.id).filter(
+                ConditionAttribute.condition_id == condition_id,
+                ConditionAttribute.management_plan_id.is_(None),
+                ConditionAttribute.iem_terms_id.is_(None),
+            ).first() is not None
+            if not has_independent_attribute:
+                condition.is_condition_attributes_approved = True
+
         condition.commit()
         return condition
 
@@ -413,9 +436,14 @@ class ConditionService:
             project = db.session.query(Project).filter_by(project_id=meta["project_id"]).first()
             document = db.session.query(Document).filter_by(document_id=meta["document_id"]).first()
 
-            project_name = project.project_name if project else "Unknown Project"
-            document_name = document.document_label if document else "Unknown Document"
-            condition_name = meta.get("condition_name", "Unknown")
+            # These values are user-controlled (condition name, editable document
+            # label, project name) and are interpolated into an HTML message that
+            # the web app renders via dangerouslySetInnerHTML. Escape each one so a
+            # name like <img src=x onerror=...> can't inject script; the literal
+            # <b>/<br/> formatting tags below stay intact.
+            project_name = escape(project.project_name if project else "Unknown Project")
+            document_name = escape(document.document_label if document else "Unknown Document")
+            condition_name = escape(meta.get("condition_name", "Unknown"))
             if condition.amended_document_id:
                 raise ConditionNumberExistsInProjectError(
                     f"Adding this condition will amend condition <b>{condition_number}) {condition_name}</b> in "
@@ -1002,7 +1030,17 @@ class ConditionService:
                 Condition.condition_name,
                 Condition.condition_number,
                 Condition.condition_text,
-                Condition.is_approved,
+                case(
+                    (
+                        and_(
+                            Condition.is_approved.is_(True),
+                            Condition.is_condition_attributes_approved.is_(True),
+                            Condition.is_topic_tags_approved.is_(True)
+                        ),
+                        True
+                    ),
+                    else_=False
+                ).label('is_approved'),
                 Condition.topic_tags,
                 Condition.is_condition_attributes_approved,
                 Condition.is_topic_tags_approved,
@@ -1043,8 +1081,19 @@ class ConditionService:
             )
 
         if not user_is_internal:
+            # External visibility gate. A condition is published externally once
+            # it is condition-approved and its topic tags are approved. We do NOT
+            # require is_condition_attributes_approved here: that flag is the AND
+            # of every attribute package (management plans, IEM terms, report
+            # submissions) and drives the *internal* overall status, which
+            # correctly drops to "awaiting" when a new package is added. Gating
+            # external visibility on it would withdraw an already-published
+            # condition — and its previously-approved packages — the moment a new
+            # draft package is added. Instead, _build_external_condition_rows
+            # emits only packages that are individually approved (is_approved=True),
+            # so a newly-added unapproved package simply does not appear until it
+            # is approved, while the approved ones stay available.
             query = query.filter(and_(Condition.is_approved.is_(True),
-                                      Condition.is_condition_attributes_approved.is_(True),
                                       Condition.is_topic_tags_approved.is_(True)))
 
         query = query.filter(
