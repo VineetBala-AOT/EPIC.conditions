@@ -7,7 +7,6 @@ from flask_restx import Namespace, Resource
 
 from marshmallow import ValidationError
 
-from condition_api.models.report_submission import ReportSubmission
 from condition_api.schemas.report import ReportSchema, ReportSubmissionSchema
 from condition_api.services.report_service import ReportService
 from condition_api.utils.roles import EpicConditionRole
@@ -53,7 +52,14 @@ class ReportListResource(Resource):
     @API.response(code=HTTPStatus.OK, description="List of reports")
     @API.response(HTTPStatus.BAD_REQUEST, "Bad Request")
     @cross_origin(origins=allowedorigins())
-    @auth.require
+    # Condition reports are internal staff data. Gate on the application's own
+    # roles instead of @auth.require (which accepts any authenticated user,
+    # including one holding only default Keycloak realm roles).
+    @auth.has_one_of_roles([
+        EpicConditionRole.VIEW_CONDITIONS.value,
+        EpicConditionRole.EXTRACT_CONDITIONS.value,
+        EpicConditionRole.MANAGE_CONDITIONS.value,
+    ])
     def get(condition_id):
         """Fetch all reports for a condition."""
         try:
@@ -165,7 +171,7 @@ class ReportSubmissionResource(Resource):
     def delete(submission_id):
         """Remove a report submission."""
         try:
-            deleted = ReportSubmission.delete_by_id(submission_id)
+            deleted = ReportService.delete_submission(submission_id)
             if not deleted:
                 return "No submission found to remove", HTTPStatus.OK
             return "Submission successfully removed", HTTPStatus.OK

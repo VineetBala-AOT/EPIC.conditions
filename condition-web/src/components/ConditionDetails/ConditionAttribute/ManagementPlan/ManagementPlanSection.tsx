@@ -5,7 +5,6 @@ import ManagementPlanAccordion from "./ManagementPlanAccordion";
 import { ConditionModel } from "@/models/Condition";
 import { useRemoveManagementPlan } from "@/hooks/api/useManagementPlan";
 import { notify } from "@/components/Shared/Snackbar/snackbarStore";
-import { useUpdateConditionDetails } from "@/hooks/api/useConditions";
 import { useGetReports } from "@/hooks/api/useReport";
 import { ReportModel } from "@/models/ConditionAttribute";
 
@@ -30,15 +29,12 @@ const ManagementPlanSection = memo(
         .map((s) => String(s.linked_management_plan_id))
     );
 
-    const { mutateAsync: removeManagementPlan } = useRemoveManagementPlan({
-      onSuccess: () => notify.success("Management plan deleted"),
-      onError: () => notify.error("Failed to delete management plan"),
-    });
-
-    const { mutate: updateConditionDetails } = useUpdateConditionDetails(
-      false,
-      false,
-      condition.condition_id
+    const { mutateAsync: removeManagementPlan } = useRemoveManagementPlan(
+      condition.condition_id,
+      {
+        onSuccess: () => notify.success("Management plan deleted"),
+        onError: () => notify.error("Failed to delete management plan"),
+      }
     );
 
     const handleDeletePlan = async (planId: string) => {
@@ -50,19 +46,14 @@ const ManagementPlanSection = memo(
           prev.condition_attributes?.management_plans?.filter(
             (p) => p.id !== planId
           ) || [];
-        const allApproved =
-          remainingPlans.length > 0 && remainingPlans.every((p) => p.is_approved);
-        if (prev.is_condition_attributes_approved !== allApproved) {
-          updateConditionDetails({ is_condition_attributes_approved: allApproved });
-        }
         return {
           ...prev,
-          is_condition_attributes_approved: allApproved,
           condition_attributes: {
             ...prev.condition_attributes,
             management_plans: remainingPlans,
             independent_attributes:
               prev.condition_attributes?.independent_attributes || [],
+            iem_terms: prev.condition_attributes?.iem_terms || [],
           },
         };
       });

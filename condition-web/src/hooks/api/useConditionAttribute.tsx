@@ -1,6 +1,7 @@
 import { ConditionAttributeModel } from "@/models/ConditionAttribute";
 import { submitRequest } from "@/utils/axiosUtils";
 import { useMutation } from "@tanstack/react-query";
+import { useInvalidateConditionApprovalCaches } from "./useInvalidateConditionApprovalCaches";
 import { Options } from "./types";
 
 type UpdateConditionAttributePayload = {
@@ -24,6 +25,7 @@ export const useUpdateConditionAttributeDetails = (
   conditionId?: number,
   options? : Options
 ) => {
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: (payload: UpdateConditionAttributePayload) => {
       if (!conditionId) {
@@ -32,6 +34,10 @@ export const useUpdateConditionAttributeDetails = (
       return updateConditionAttributeDetails(conditionId, payload);
     },
     ...options,
+    onSuccess: (data) => {
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };
 
@@ -46,6 +52,7 @@ export const useDeleteSingleConditionAttribute = (
   conditionId?: number,
   options?: Options
 ) => {
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: (attributeId: number) => {
       if (!conditionId) {
@@ -54,6 +61,10 @@ export const useDeleteSingleConditionAttribute = (
       return deleteSingleConditionAttribute(conditionId, attributeId);
     },
     ...options,
+    onSuccess: (data) => {
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };
 
@@ -73,6 +84,7 @@ export const useRemoveConditionAttributes = (
   conditionId?: number,
   options? : Options
 ) => {
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: (requiresPlan: boolean) => {
       if (!conditionId) {
@@ -81,5 +93,9 @@ export const useRemoveConditionAttributes = (
       return removeConditionAttributes(conditionId, requiresPlan);
     },
     ...options,
+    onSuccess: (data) => {
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };

@@ -7,7 +7,6 @@ from flask_restx import Namespace, Resource
 
 from marshmallow import ValidationError
 
-from condition_api.models.iem_terms import IEMTerms
 from condition_api.schemas.iem_terms import IEMTermsSchema
 from condition_api.services.iem_terms import IEMTermsService
 from condition_api.utils.roles import EpicConditionRole
@@ -52,7 +51,7 @@ class IEMTermsResource(Resource):
     def delete(terms_id):
         """Remove IEM Terms data."""
         try:
-            deleted = IEMTerms().delete_by_id(terms_id)
+            deleted = IEMTermsService.delete_iem_terms(terms_id)
             if not deleted:
                 return 'No IEM Terms data found to remove', HTTPStatus.OK
             return 'IEM Terms successfully removed', HTTPStatus.OK

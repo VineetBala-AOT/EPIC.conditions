@@ -2,6 +2,7 @@ import { ReportModel, ReportSubmissionModel } from "@/models/ConditionAttribute"
 import { submitRequest } from "@/utils/axiosUtils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { defaultUseQueryOptions } from "./constants";
+import { useInvalidateConditionApprovalCaches } from "./useInvalidateConditionApprovalCaches";
 import { Options } from "./types";
 
 const REPORTS_KEY = "reports";
@@ -20,6 +21,7 @@ export const useGetReports = (conditionId?: number) =>
 
 export const useCreateReport = (conditionId?: number, options?: Options) => {
   const queryClient = useQueryClient();
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: (payload: Partial<ReportModel> & { submissions: Array<{ phases: string[]; frequency: string; timing: string }> }) => {
       if (!conditionId) return Promise.reject(new Error("Condition ID is required"));
@@ -29,8 +31,12 @@ export const useCreateReport = (conditionId?: number, options?: Options) => {
         data: payload,
       });
     },
-    onSuccess: () => queryClient.removeQueries({ queryKey: [REPORTS_KEY, conditionId] }),
     ...options,
+    onSuccess: (data) => {
+      queryClient.removeQueries({ queryKey: [REPORTS_KEY, conditionId] });
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };
 
@@ -48,16 +54,22 @@ export const usePatchReport = (options?: Options) => {
 
 export const useRemoveReport = (conditionId?: number, options?: Options) => {
   const queryClient = useQueryClient();
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: (reportId: number) =>
       submitRequest({ url: `/reports/${reportId}`, method: "delete" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] }),
     ...options,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] });
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };
 
 export const useAddReportSubmission = (conditionId?: number, options?: Options) => {
   const queryClient = useQueryClient();
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: ({ reportId, payload }: { reportId: number; payload: { phases: string[]; frequency: string; timing: string } }) =>
       submitRequest<ReportSubmissionModel[]>({
@@ -65,13 +77,18 @@ export const useAddReportSubmission = (conditionId?: number, options?: Options) 
         method: "post",
         data: payload,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] }),
     ...options,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] });
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };
 
 export const usePatchReportSubmission = (conditionId?: number, options?: Options) => {
   const queryClient = useQueryClient();
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: ({ submissionId, payload }: { submissionId: number; payload: Partial<ReportSubmissionModel> }) =>
       submitRequest<ReportSubmissionModel>({
@@ -79,17 +96,26 @@ export const usePatchReportSubmission = (conditionId?: number, options?: Options
         method: "patch",
         data: payload,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] }),
     ...options,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] });
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };
 
 export const useRemoveReportSubmission = (conditionId?: number, options?: Options) => {
   const queryClient = useQueryClient();
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   return useMutation({
     mutationFn: (submissionId: number) =>
       submitRequest({ url: `/reports/submissions/${submissionId}`, method: "delete" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] }),
     ...options,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [REPORTS_KEY, conditionId] });
+      invalidateApprovalCaches();
+      options?.onSuccess?.(data);
+    },
   });
 };

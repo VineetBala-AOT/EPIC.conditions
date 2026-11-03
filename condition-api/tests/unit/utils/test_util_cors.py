@@ -32,15 +32,44 @@ TEST_CORS_METHODS_DATA = [
     ('GET,PUT,POST'),
 ]
 
+ALLOWED_ORIGIN = 'https://conditions.example.gov.bc.ca'
 
-@pytest.mark.parametrize('methods', TEST_CORS_METHODS_DATA)
-def test_cors_preflight_post(methods):
-    """Assert that the options methos is added to the class and that the correct access controls are set."""
+
+def _preflight_options(methods):
+    """Build a class decorated with cors_preflight and return its options method."""
     @cors_preflight(methods)  # pylint: disable=too-few-public-methods
     class TestCors():
         pass
 
-    rv = TestCors().options()  # pylint: disable=no-member
+    return TestCors().options  # pylint: disable=no-member
 
-    assert rv[2]['Access-Control-Allow-Origin'] == '*'
-    assert rv[2]['Access-Control-Allow-Methods'] == methods
+
+@pytest.mark.parametrize('methods', TEST_CORS_METHODS_DATA)
+def test_cors_preflight_allowed_origin(app, monkeypatch, methods):
+    """An allow-listed Origin is echoed back with credentials on preflight."""
+    monkeypatch.setenv('CORS_ORIGIN', ALLOWED_ORIGIN)
+    options = _preflight_options(methods)
+
+    with app.test_request_context(headers={'Origin': ALLOWED_ORIGIN}):
+        rv = options()
+
+    headers = rv[2]
+    assert headers['Access-Control-Allow-Origin'] == ALLOWED_ORIGIN
+    assert headers['Access-Control-Allow-Credentials'] == 'true'
+    assert headers['Vary'] == 'Origin'
+    assert headers['Access-Control-Allow-Methods'] == methods
+
+
+@pytest.mark.parametrize('methods', TEST_CORS_METHODS_DATA)
+def test_cors_preflight_disallowed_origin(app, monkeypatch, methods):
+    """A non-allow-listed Origin is not reflected (no wildcard) on preflight."""
+    monkeypatch.setenv('CORS_ORIGIN', ALLOWED_ORIGIN)
+    options = _preflight_options(methods)
+
+    with app.test_request_context(headers={'Origin': 'https://not-allowed.example'}):
+        rv = options()
+
+    headers = rv[2]
+    assert 'Access-Control-Allow-Origin' not in headers
+    assert 'Access-Control-Allow-Credentials' not in headers
+    assert headers['Access-Control-Allow-Methods'] == methods

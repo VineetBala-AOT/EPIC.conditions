@@ -21,6 +21,7 @@ from condition_api.models.condition import Condition
 from condition_api.models.management_plan import ManagementPlan
 from condition_api.models.report import Report
 from condition_api.models.report_submission import ReportSubmission
+from condition_api.services.condition_approval_service import ConditionApprovalService
 
 
 class ManagementPlanService:
@@ -52,7 +53,19 @@ class ManagementPlanService:
         if not plan:
             db.session.commit()
             return False
+        condition_id = plan.condition_id
         db.session.delete(plan)
+        db.session.flush()
+        # If this was the last management plan, the condition no longer requires
+        # one. Clearing the flag lets recompute treat the now package-free
+        # attributes dimension as satisfied instead of leaving the condition stuck
+        # at "awaiting" with no package left to approve.
+        remaining = ManagementPlan.query.filter_by(condition_id=condition_id).count()
+        if remaining == 0:
+            condition = Condition.query.get(condition_id)
+            if condition:
+                condition.requires_management_plan = False
+        ConditionApprovalService.recompute_attributes_approved(condition_id)
         db.session.commit()
         return True
 
@@ -81,16 +94,7 @@ class ManagementPlanService:
         # Update is_approved if present
         if "is_approved" in payload:
             plan.is_approved = payload["is_approved"]
-
-            condition = Condition.query.get(plan.condition_id)
-            all_plans = ManagementPlan.query.filter_by(condition_id=plan.condition_id).all()
-            all_approved = all(p.is_approved for p in all_plans)
-            if all_approved:
-                # Update the related condition
-                if condition:
-                    condition.is_condition_attributes_approved = True
-            else:
-                condition.is_condition_attributes_approved = False
+            ConditionApprovalService.recompute_attributes_approved(plan.condition_id)
 
         db.session.commit()
         return plan

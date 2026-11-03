@@ -7,8 +7,7 @@ import { theme } from "@/styles/theme";
 import { useUpdateConditionDetails } from "@/hooks/api/useConditions";
 import { notify } from "@/components/Shared/Snackbar/snackbarStore";
 import { updateTopicTagsModel } from "@/models/Condition";
-import { useQueryClient } from "@tanstack/react-query";
-import { QUERY_KEY } from "@/hooks/api/constants";
+import { useInvalidateConditionApprovalCaches } from "@/hooks/api/useInvalidateConditionApprovalCaches";
 import { BCDesignTokens } from "epic.theme";
 import SubconditionComponent from "./SubCondition";
 import { useSubconditionHandler } from "@/hooks/api/useSubconditionHandler";
@@ -47,8 +46,6 @@ const normalizeSubconditions = (subs: SubconditionModel[]): SubconditionModel[] 
 // Main component to render the condition and its subconditions
 const ConditionDescription = memo(({
   editMode,
-  projectId,
-  documentId,
   conditionId,
   condition,
   setCondition,
@@ -56,7 +53,7 @@ const ConditionDescription = memo(({
   setIsConditionApproved,
   setIsLoading
 }: ConditionDescriptionProps) => {
-  const queryClient = useQueryClient();
+  const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
   const canManage = useHasAllowedRoles([KeycloakRoles.MANAGE_CONDITIONS]);
   const [isEditing, setIsEditing] = useState(editMode);
   const [showEditingError, setShowEditingError] = useState(false);
@@ -77,9 +74,7 @@ const ConditionDescription = memo(({
 
   const onCreateSuccess = () => {
     notify.success("Condition saved successfully");
-    queryClient.invalidateQueries({
-      queryKey: [QUERY_KEY.CONDITIONSDETAIL, projectId, documentId, conditionId],
-    });
+    invalidateApprovalCaches();
   };
 
   const { data: conditionDetails, mutate: updateConditionDetails } = useUpdateConditionDetails(

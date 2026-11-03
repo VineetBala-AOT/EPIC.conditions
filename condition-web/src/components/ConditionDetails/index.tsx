@@ -32,16 +32,32 @@ export const ConditionDetails = ({
 
   const [condition, setCondition] = useState(() => initialCondition?.condition || createDefaultCondition());
 
-  // Only reset condition state when loading a DIFFERENT condition (not on refetches of the same one).
-  // This prevents query refetches from wiping out local edits (e.g. unsaved subconditions).
+  // On a DIFFERENT condition, replace local state wholesale. On a refetch of the
+  // SAME condition (e.g. after adding/approving a management plan, IEM terms
+  // package, or report), only merge in the server-authoritative approval/
+  // requirement flags — these are never locally edited, so the server is always
+  // right — while leaving condition_attributes/subconditions untouched so an
+  // in-progress local edit never gets clobbered by a refetch.
   const loadedConditionIdRef = useRef(initialCondition?.condition?.condition_id);
   useEffect(() => {
-    if (initialCondition?.condition) {
-      if (loadedConditionIdRef.current !== initialCondition.condition.condition_id) {
-        setCondition(initialCondition.condition);
-      }
-      loadedConditionIdRef.current = initialCondition.condition.condition_id;
+    if (!initialCondition?.condition) {
+      return;
     }
+    const incoming = initialCondition.condition;
+    if (loadedConditionIdRef.current !== incoming.condition_id) {
+      setCondition(incoming);
+    } else {
+      setCondition((prev) => ({
+        ...prev,
+        is_approved: incoming.is_approved,
+        is_condition_attributes_approved: incoming.is_condition_attributes_approved,
+        is_topic_tags_approved: incoming.is_topic_tags_approved,
+        requires_management_plan: incoming.requires_management_plan,
+        requires_iem_terms: incoming.requires_iem_terms,
+        requires_report: incoming.requires_report,
+      }));
+    }
+    loadedConditionIdRef.current = incoming.condition_id;
   }, [initialCondition]);
 
   return (

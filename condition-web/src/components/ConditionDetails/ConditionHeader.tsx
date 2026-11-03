@@ -11,8 +11,8 @@ import { useGetReports } from "@/hooks/api/useReport";
 import { notify } from "@/components/Shared/Snackbar/snackbarStore";
 import { PartialUpdateTopicTagsModel } from "@/models/Condition";
 import ChipInput from "../Shared/Chips/ChipInput";
-import { HTTP_STATUS_CODES, QUERY_KEY } from "../../hooks/api/constants";
-import { useQueryClient } from "@tanstack/react-query";
+import { HTTP_STATUS_CODES } from "../../hooks/api/constants";
+import { useInvalidateConditionApprovalCaches } from "../../hooks/api/useInvalidateConditionApprovalCaches";
 import { useHasAllowedRoles, KeycloakRoles } from "@/hooks/useAuthorization";
 
 type ConditionHeaderProps = {
@@ -30,7 +30,7 @@ const ConditionHeader = ({
     condition,
     setCondition
 }: ConditionHeaderProps) => {
-    const queryClient = useQueryClient();
+    const invalidateApprovalCaches = useInvalidateConditionApprovalCaches();
     const canManage = useHasAllowedRoles([KeycloakRoles.MANAGE_CONDITIONS]);
     const [editConditionMode, setEditConditionMode] = useState(false);
     const [conditionNumber, setConditionNumber] = useState(condition?.condition_number || "");
@@ -48,9 +48,7 @@ const ConditionHeader = ({
 
     const onCreateSuccess = () => {
         notify.success("Condition saved successfully");
-        queryClient.invalidateQueries({
-          queryKey: [QUERY_KEY.CONDITIONSDETAIL],
-        });
+        invalidateApprovalCaches();
     };
 
     const isAmendCondition = condition.condition_type === ConditionType.AMEND;

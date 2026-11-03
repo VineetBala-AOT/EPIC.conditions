@@ -4,7 +4,6 @@ import IEMTermsAccordion from "./IEMTermsAccordion";
 import { ConditionModel } from "@/models/Condition";
 import { useRemoveIEMTerms } from "@/hooks/api/useIEMTerms";
 import { notify } from "@/components/Shared/Snackbar/snackbarStore";
-import { useUpdateConditionDetails } from "@/hooks/api/useConditions";
 
 type IEMTermsSectionProps = {
   condition: ConditionModel;
@@ -14,31 +13,18 @@ type IEMTermsSectionProps = {
 const IEMTermsSection = memo(({ condition, setCondition }: IEMTermsSectionProps) => {
   const iemTermsList = condition?.condition_attributes?.iem_terms || [];
 
-  const { mutateAsync: removeIEMTerms } = useRemoveIEMTerms({
+  const { mutateAsync: removeIEMTerms } = useRemoveIEMTerms(condition.condition_id, {
     onSuccess: () => notify.success("IEM Terms deleted"),
     onError: () => notify.error("Failed to delete IEM Terms"),
   });
-
-  const { mutate: updateConditionDetails } = useUpdateConditionDetails(
-    false,
-    false,
-    condition.condition_id
-  );
 
   const handleDeleteTerms = async (termsId: string) => {
     await removeIEMTerms(termsId);
     setCondition((prev) => {
       const remainingTerms =
         prev.condition_attributes?.iem_terms?.filter((t) => t.id !== termsId) || [];
-      const allApproved =
-        remainingTerms.length > 0 && remainingTerms.every((t) => t.is_approved);
-      if (prev.is_condition_attributes_approved !== allApproved) {
-        updateConditionDetails({ is_condition_attributes_approved: allApproved });
-      }
       return {
         ...prev,
-        requires_iem_terms: remainingTerms.length > 0,
-        is_condition_attributes_approved: allApproved,
         condition_attributes: {
           ...prev.condition_attributes,
           iem_terms: remainingTerms,

@@ -330,7 +330,7 @@ const saveAll = async () => {
         {/* Right: status + trash */}
         <Box flex={1} />
         {statusChip}
-        {canManage && (
+        {canManage && !allApproved && (
           <IconButton
             size="small"
             onClick={(e) => { e.stopPropagation(); setConfirmRemovePhase(true); }}

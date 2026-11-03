@@ -36,7 +36,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import ErrorMessage from "../ErrorMessage";
 import { ApproveButton } from "../ApproveButton";
 import { validateRequiredAttributes } from "@/utils/attributeValidation";
-import { useUpdateConditionDetails } from "@/hooks/api/useConditions";
 import DeleteIcon from "@/components/Shared/Icons/DeleteIcon";
 import AddIcon from '@mui/icons-material/Add';
 import DeleteConfirmationModal from "../ManagementPlan/DeleteConfirmationModal";
@@ -188,34 +187,12 @@ const IEMTermsAccordion: React.FC<Props> = ({
 
   const { mutateAsync: updateTermsName, isPending: isUpdating } = usePatchIEMTerms(
     attributes.id,
+    condition.condition_id,
     {
       onSuccess: () => notify.success("IEM Terms name updated successfully"),
       onError: () => notify.error("Failed to update IEM Terms name"),
     }
   );
-
-  const onApproveFailure = () => notify.error("Failed to approve condition attribute");
-  const onApproveSuccess = () => notify.success("Condition attribute successfully approved");
-
-  const { data: conditionDetails, mutate: updateConditionDetails } = useUpdateConditionDetails(
-    false,
-    false,
-    condition.condition_id,
-    {
-      onSuccess: onApproveSuccess,
-      onError: onApproveFailure,
-    }
-  );
-
-  useEffect(() => {
-    if (conditionDetails) {
-      setCondition((prevCondition) => ({
-        ...prevCondition,
-        ...conditionDetails,
-        subconditions: prevCondition.subconditions
-      }));
-    }
-  }, [conditionDetails, setCondition]);
 
   useEffect(() => {
     if (!attributes?.attributes) {
@@ -378,21 +355,7 @@ const IEMTermsAccordion: React.FC<Props> = ({
     setConditionAttributeError(false);
 
     const currentApproval = attributes.is_approved;
-    await handleUpdateTerms(
-      { is_approved: !currentApproval },
-      () => {
-        const updatedTerms = condition.condition_attributes?.iem_terms || [];
-        if (updatedTerms.length === 0) return;
-
-        const allApproved = updatedTerms.every((terms) =>
-          terms.id === attributes.id ? !currentApproval : terms.is_approved
-        );
-
-        if (condition.is_condition_attributes_approved !== allApproved) {
-          updateConditionDetails({ is_condition_attributes_approved: allApproved });
-        }
-      }
-    );
+    await handleUpdateTerms({ is_approved: !currentApproval });
   };
 
   const handleSave = async (updatedAttribute: IndependentAttributeModel) => {
@@ -561,7 +524,7 @@ const IEMTermsAccordion: React.FC<Props> = ({
             />
           </Box>
           <Box display="flex" flexDirection="column" width="4%" marginTop="8px" alignItems="flex-end">
-            {canManage && (
+            {canManage && !attributes.is_approved && (
               <Tooltip title="Delete IEM Terms of Engagement">
                 <IconButton
                   onClick={(e) => {

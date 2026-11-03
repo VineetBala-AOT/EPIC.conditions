@@ -67,7 +67,16 @@ class User(Resource):
     @ApiHelper.swagger_decorators(API, endpoint_description="Fetch a user by guid")
     @API.response(code=200, model=user_model, description="Success")
     @API.response(404, "Not Found")
-    @auth.require
+    # Staff user records are internal. Gate on the application's own roles
+    # instead of @auth.require (which accepts any authenticated user, including
+    # one holding only default Keycloak realm roles) so a caller without an
+    # EPIC.conditions role cannot read another staff member's record. Matches
+    # the role required to create a staff user (POST, below).
+    @auth.has_one_of_roles([
+        EpicConditionRole.VIEW_CONDITIONS.value,
+        EpicConditionRole.EXTRACT_CONDITIONS.value,
+        EpicConditionRole.MANAGE_CONDITIONS.value,
+    ])
     @cross_origin(origins=allowedorigins())
     def get(guid):
         """Fetch a staff user by id."""

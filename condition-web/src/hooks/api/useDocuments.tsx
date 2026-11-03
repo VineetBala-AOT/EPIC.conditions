@@ -34,6 +34,11 @@ export const useGetDocuments = (projectId?: string, categoryId?: number) => {
     queryFn: () => fetchDocuments(projectId, categoryId),
     enabled: Boolean(projectId && categoryId),
     ...defaultUseQueryOptions,
+    // Approval changes made elsewhere invalidate this query while it's not
+    // mounted, which only marks it stale — it won't refetch on remount with
+    // the default's refetchOnMount: false. Override so navigating back here
+    // always picks up the latest approval status.
+    refetchOnMount: true,
   });
 };
 

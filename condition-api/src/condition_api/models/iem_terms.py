@@ -5,7 +5,6 @@ Manages the IEM Terms of Engagement
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, Text, text
 
 from .base_model import BaseModel
-from .db import db
 
 
 class IEMTerms(BaseModel):
@@ -28,13 +27,3 @@ class IEMTerms(BaseModel):
     def get_by_condition_id(cls, condition_id):
         """Get IEM terms by condition ID."""
         return cls.query.filter_by(condition_id=condition_id).all()
-
-    @classmethod
-    def delete_by_id(cls, terms_id):
-        """Delete an IEM terms package by its ID."""
-        terms = cls.query.filter_by(id=terms_id).one()
-        if terms:
-            db.session.delete(terms)
-            db.session.commit()
-            return True
-        return True

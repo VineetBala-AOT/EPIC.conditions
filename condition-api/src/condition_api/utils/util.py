@@ -22,6 +22,7 @@ import os
 import re
 import urllib
 
+from flask import request
 from humps.main import camelize, decamelize
 
 
@@ -30,12 +31,19 @@ def cors_preflight(methods):
 
     def wrapper(f):
         def options(self, *args, **kwargs):  # pylint: disable=unused-argument
-            return {'Allow': 'OPTIONS, GET, DELETE, PUT, POST, PATCH'}, 200, \
-                   {
-                       'Access-Control-Allow-Origin': '*',
-                       'Access-Control-Allow-Methods': methods,
-                       'Access-Control-Allow-Headers': 'Authorization, Content-Type, registries-trace-id, '
-                                                       'invitation_token'}
+            headers = {
+                'Access-Control-Allow-Methods': methods,
+                'Access-Control-Allow-Headers': 'Authorization, Content-Type, registries-trace-id, '
+                                                'invitation_token'}
+            # Echo an allowlisted origin on preflight to stay consistent with the
+            # credentialed CORS allowlist applied to actual responses, rather than
+            # hard-coding a wildcard (which is invalid alongside credentials).
+            origin = request.headers.get('Origin')
+            if origin and origin in allowedorigins():
+                headers['Access-Control-Allow-Origin'] = origin
+                headers['Access-Control-Allow-Credentials'] = 'true'
+                headers['Vary'] = 'Origin'
+            return {'Allow': 'OPTIONS, GET, DELETE, PUT, POST, PATCH'}, 200, headers
 
         setattr(f, 'options', options)
         return f
