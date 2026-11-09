@@ -54,7 +54,6 @@ export const Conditions = ({
   const navigate = useNavigate();
   const canManage = useHasAllowedRoles([KeycloakRoles.MANAGE_CONDITIONS]);
   const [hasAmendments, setHasAmendments] = useState(false);
-  const [isToggleEnabled, setIsToggleEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [noConditions, setNoConditions] = useState(conditions?.length === 0);
   const [openModal, setOpenModal] = useState(false);
@@ -88,9 +87,7 @@ export const Conditions = ({
   useEffect(() => {
     // Check if all conditions have status as true
     if (conditions && conditions.length > 0) {
-      const allApproved = conditions.every((condition) => condition.is_approved === true);
       const conditionHasAmendments = conditions.some(condition => condition.amendment_names != null);
-      setIsToggleEnabled(allApproved);
       setHasAmendments(conditionHasAmendments);
 
       const invalidConditions =
