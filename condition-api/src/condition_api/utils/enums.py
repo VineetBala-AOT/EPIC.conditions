@@ -82,3 +82,10 @@ class ConditionType(Enum):
 
     ADD = "add"
     AMEND = "amend"
+
+
+# report_type value for a report that is tied to a management plan. A submission of
+# this report type is only considered complete once it is linked to a management plan;
+# until then it rolls up as "Data Entry Required". Kept here as the single source of
+# truth so extraction/import and status roll-up stay in sync.
+MANAGEMENT_PLAN_ASSOCIATED_REPORT_TYPE = "Management Plan Associated Report"

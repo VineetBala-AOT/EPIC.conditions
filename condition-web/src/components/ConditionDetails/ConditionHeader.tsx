@@ -9,6 +9,7 @@ import { StyledLabel } from "../Shared/Table/common";
 import { useUpdateConditionDetails } from "@/hooks/api/useConditions";
 import { notify } from "@/components/Shared/Snackbar/snackbarStore";
 import { PartialUpdateTopicTagsModel } from "@/models/Condition";
+import { deriveConditionStatus } from "@/utils/conditionStatus";
 import ChipInput from "../Shared/Chips/ChipInput";
 import { HTTP_STATUS_CODES } from "../../hooks/api/constants";
 import { useInvalidateConditionApprovalCaches } from "../../hooks/api/useInvalidateConditionApprovalCaches";
@@ -394,15 +395,7 @@ const ConditionHeader = ({
               justifyContent: 'flex-end'
             }}
           >
-            <DocumentStatusChip
-              status={
-                condition?.is_approved
-                && condition?.is_condition_attributes_approved
-                && condition?.is_topic_tags_approved
-                  ? "true"
-                  : "false"
-              }
-            />
+            <DocumentStatusChip status={deriveConditionStatus(condition)} />
           </Grid>
         </Grid>
         <Grid container direction={{ xs: "column", sm: "row" }}>

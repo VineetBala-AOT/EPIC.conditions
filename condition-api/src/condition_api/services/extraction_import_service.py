@@ -15,9 +15,7 @@ from condition_api.models.management_plan import ManagementPlan
 from condition_api.models.report import Report
 from condition_api.models.report_submission import ReportSubmission
 from condition_api.models.subcondition import Subcondition
-from condition_api.utils.enums import ConditionType
-
-MANAGEMENT_PLAN_ASSOCIATED_REPORT_TYPE = "Management Plan Associated Report"
+from condition_api.utils.enums import ConditionType, MANAGEMENT_PLAN_ASSOCIATED_REPORT_TYPE
 
 
 ATTRIBUTE_EXTERNAL_KEYS = (

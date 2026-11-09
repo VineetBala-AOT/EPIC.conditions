@@ -24,6 +24,7 @@ from condition_api.models.document import Document
 from condition_api.models.document_category import DocumentCategory  # used in get_all_projects group_by
 from condition_api.models.document_type import DocumentType
 from condition_api.models.project import Project
+from condition_api.services.condition_approval_service import ConditionApprovalService
 
 
 class ProjectService:
@@ -191,6 +192,36 @@ class ProjectService:
         )
 
         if all_approved is None:
+            return None
+
+        # Roll "Data Entry Required" up to the project/category badge: if any valid
+        # condition in the category still has an unfilled required package, the whole
+        # category reads as Data Entry Required (null) regardless of approvals. Select
+        # only the condition ids so the data-entry check runs as a few set-based
+        # queries instead of loading every condition row.
+        category_condition_ids = [
+            row.id
+            for row in (
+                db.session.query(Condition.id)
+                .join(Document, Document.document_id == Condition.document_id)
+                .filter(
+                    and_(
+                        Document.project_id == project_id,
+                        Document.document_category_id == document_category_id
+                    )
+                )
+                .filter(
+                    not_(
+                        and_(
+                            Condition.condition_name.is_(None),
+                            Condition.condition_number.is_(None)
+                        )
+                    )
+                )
+                .all()
+            )
+        ]
+        if ConditionApprovalService.condition_ids_needing_data_entry(category_condition_ids):
             return None
 
         return all_approved[0]

@@ -41,6 +41,7 @@ from condition_api.models.report import Report
 from condition_api.models.report_submission import ReportSubmission
 from condition_api.models.subcondition import Subcondition
 from condition_api.schemas.condition import ConsolidatedConditionSchema, ProjectDocumentConditionSchema
+from condition_api.services.condition_approval_service import ConditionApprovalService
 from condition_api.services.condition_attribute_service import ConditionAttributeService
 from condition_api.utils.enums import AttributeKeys, ConditionType, IEMTermsConfig
 
@@ -49,6 +50,18 @@ ENABLE_NEW_SUBMIT_FLOW = _Config.ENABLE_NEW_SUBMIT_FLOW
 
 class ConditionService:
     """Service for managing condition-related operations."""
+
+    @staticmethod
+    def _compute_status_for(condition_id):
+        """Return the rolled-up 3-state status string for a condition id.
+
+        Thin wrapper so read builders can attach a `status` field without each
+        re-implementing the roll-up. Returns None when the condition is missing.
+        """
+        condition = Condition.query.get(condition_id)
+        if not condition:
+            return None
+        return ConditionApprovalService.compute_condition_status(condition)
 
     @staticmethod
     def get_condition_details(project_id, document_id, condition_id):
@@ -202,6 +215,14 @@ class ConditionService:
 
         conditions_map = {}
 
+        # Compute the rolled-up 3-state status for every condition in one batch.
+        # row.is_approved is already the combined approval boolean (is_approved AND
+        # attributes AND topic tags), so the status helper only needs the set-based
+        # data-entry lookup — avoiding a per-condition query storm on this list.
+        statuses = ConditionApprovalService.compute_statuses_for(
+            {row.condition_id: bool(row.is_approved) for row in condition_data}
+        )
+
         # Process the query result
         for row in condition_data:
             cond_id = row.condition_id
@@ -213,6 +234,7 @@ class ConditionService:
                 "condition_number": row.condition_number,
                 "condition_text": row.condition_text,
                 "is_approved": row.is_approved,
+                "status": statuses.get(cond_id),
                 "is_active": row.is_active,
                 "is_standard_condition": row.is_standard_condition,
                 "topic_tags": row.topic_tags,
@@ -285,8 +307,12 @@ class ConditionService:
         subcondition_map = {}
         top_level_subconditions = []
 
+        # Fetch once and reuse for both passes — this runs per condition on the
+        # conditions list, so re-querying here doubled the subcondition queries.
+        sub_rows = ConditionService._fetch_subconditions(cond_id)
+
         # First pass: create all subcondition objects
-        for sub_row in ConditionService._fetch_subconditions(cond_id):
+        for sub_row in sub_rows:
             # Handle subconditions
             subcond_id = sub_row.subcondition_id
             if subcond_id:
@@ -298,7 +324,7 @@ class ConditionService:
                 }
 
         # Second pass: assign parent-child relationships
-        for sub_row in ConditionService._fetch_subconditions(cond_id):
+        for sub_row in sub_rows:
             subcond_id = sub_row.subcondition_id
             parent_id = sub_row.parent_subcondition_id
 
@@ -818,6 +844,7 @@ class ConditionService:
             "condition_number": condition_data.condition_number,
             "condition_text": condition_data.condition_text,
             "is_approved": condition_data.is_approved,
+            "status": ConditionService._compute_status_for(condition_data.id),
             "is_standard_condition": condition_data.is_standard_condition,
             "topic_tags": condition_data.topic_tags,
             "subtopic_tags": condition_data.subtopic_tags,
@@ -1120,12 +1147,19 @@ class ConditionService:
         """Process conditions for internal users."""
         conditions_map = {}
 
+        # Batch the 3-state status for every condition (see get_all_conditions);
+        # row.is_approved is the combined approval boolean already.
+        statuses = ConditionApprovalService.compute_statuses_for(
+            {row.condition_id: bool(row.is_approved) for row in condition_data}
+        )
+
         for row in condition_data:
             conditions_map[row.condition_id] = {
                 "condition_id": row.condition_id,
                 "condition_name": row.condition_name,
                 "condition_number": row.condition_number,
                 "is_approved": row.is_approved,
+                "status": statuses.get(row.condition_id),
                 "is_standard_condition": row.is_standard_condition,
                 "topic_tags": row.topic_tags,
                 "amendment_names": row.amendment_names,
@@ -1530,6 +1564,7 @@ class ConditionService:
             "condition_number": first.condition_number,
             "condition_text": first.condition_text,
             "is_approved": first.is_approved,
+            "status": ConditionService._compute_status_for(first.id),
             "topic_tags": first.topic_tags,
             "is_topic_tags_approved": first.is_topic_tags_approved,
             "is_condition_attributes_approved": first.is_condition_attributes_approved,

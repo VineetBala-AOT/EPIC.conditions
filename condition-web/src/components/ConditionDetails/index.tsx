@@ -52,6 +52,11 @@ export const ConditionDetails = ({
         is_approved: incoming.is_approved,
         is_condition_attributes_approved: incoming.is_condition_attributes_approved,
         is_topic_tags_approved: incoming.is_topic_tags_approved,
+        // Server-authoritative rolled-up badge status. Without merging this, the
+        // header keeps showing the stale status (e.g. "Data Entry Required") after a
+        // management plan / IEM / report is filled in and approved, until a full
+        // page refresh re-initialises state. See deriveConditionStatus.
+        status: incoming.status,
         requires_management_plan: incoming.requires_management_plan,
         requires_iem_terms: incoming.requires_iem_terms,
         requires_report: incoming.requires_report,

@@ -15,6 +15,9 @@ export interface ConditionModel {
   effective_document_id?: string;
   year_issued?: number;
   is_approved?: boolean;
+  // Rolled-up 3-state badge status computed server-side ("nodata" | "false" | "true").
+  // Use deriveConditionStatus() to read it so list/detail fall back correctly.
+  status?: "true" | "false" | "nodata";
   is_active?: boolean;
   topic_tags?: string[];
   is_topic_tags_approved?: boolean;
@@ -86,7 +89,7 @@ export interface ProjectDocumentConditionDetailModel {
   condition: ConditionModel;
 }
 
-export type ConditionStatus = "true" | "false";
+export type ConditionStatus = "true" | "false" | "nodata";
 export const CONDITION_STATUS: Record<
   ConditionStatus,
   { value: ConditionStatus; label: string }
@@ -98,5 +101,9 @@ export const CONDITION_STATUS: Record<
   false: {
     value: "false",
     label: "Awaiting Confirmation",
+  },
+  nodata: {
+    value: "nodata",
+    label: "Data Entry Required",
   }
 };
