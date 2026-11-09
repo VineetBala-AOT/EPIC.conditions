@@ -1,8 +1,8 @@
 import { Link, TableCell, TableRow, Typography } from "@mui/material";
 import { BCDesignTokens } from "epic.theme";
 import DocumentStatusChip from "../Projects/DocumentStatusChip";
-import { DocumentStatus } from "@/models/Document";
 import { ConditionModel } from "@/models/Condition";
+import { deriveConditionStatus } from "@/utils/conditionStatus";
 import { useNavigate } from "@tanstack/react-router";
 import { DocumentTypes } from "@/utils/enums"
 import { useBreadCrumb } from "@/components/Shared/layout/SideNav/breadCrumbStore";
@@ -160,7 +160,7 @@ export default function ConditionTableRow({
             px: BCDesignTokens.layoutPaddingXsmall,
           }}
         >
-          <DocumentStatusChip status={String(condition.is_approved) as DocumentStatus} />
+          <DocumentStatusChip status={deriveConditionStatus(condition)} />
         </TableCell>
       </TableRow>
     </>

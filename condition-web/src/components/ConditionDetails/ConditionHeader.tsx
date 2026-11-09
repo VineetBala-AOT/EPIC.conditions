@@ -7,9 +7,9 @@ import { ConditionModel, ConditionType } from "@/models/Condition";
 import { BCDesignTokens } from "epic.theme";
 import { StyledLabel } from "../Shared/Table/common";
 import { useUpdateConditionDetails } from "@/hooks/api/useConditions";
-import { useGetReports } from "@/hooks/api/useReport";
 import { notify } from "@/components/Shared/Snackbar/snackbarStore";
 import { PartialUpdateTopicTagsModel } from "@/models/Condition";
+import { deriveConditionStatus } from "@/utils/conditionStatus";
 import ChipInput from "../Shared/Chips/ChipInput";
 import { HTTP_STATUS_CODES } from "../../hooks/api/constants";
 import { useInvalidateConditionApprovalCaches } from "../../hooks/api/useInvalidateConditionApprovalCaches";
@@ -52,14 +52,6 @@ const ConditionHeader = ({
     };
 
     const isAmendCondition = condition.condition_type === ConditionType.AMEND;
-
-    const { data: reports = [] } = useGetReports(condition.condition_id);
-    const isConditionAttributesApproved =
-        (condition.condition_attributes?.management_plans ?? []).every((plan) => plan.is_approved)
-        && (condition.condition_attributes?.iem_terms ?? []).every((terms) => terms.is_approved)
-        && reports
-            .flatMap((report) => report.submissions ?? [])
-            .every((submission) => submission.is_approved);
 
     const { data: conditionDetails, mutateAsync: updateConditionDetails } = useUpdateConditionDetails(
         true,
@@ -403,15 +395,7 @@ const ConditionHeader = ({
               justifyContent: 'flex-end'
             }}
           >
-            <DocumentStatusChip
-              status={
-                condition?.is_approved
-                && isConditionAttributesApproved
-                && condition?.is_topic_tags_approved
-                  ? "true"
-                  : "false"
-              }
-            />
+            <DocumentStatusChip status={deriveConditionStatus(condition)} />
           </Grid>
         </Grid>
         <Grid container direction={{ xs: "column", sm: "row" }}>

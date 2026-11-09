@@ -5,7 +5,6 @@ import { Box, Button, Grid, styled, Stack, TextField, Typography } from "@mui/ma
 import { ContentBoxSkeleton } from "../Shared/ContentBox/ContentBoxSkeleton";
 import { ContentBox } from "../Shared/ContentBox";
 import ConditionTable from "../Conditions/ConditionsTable";
-import { DocumentStatus } from "@/models/Document";
 import DocumentStatusChip from "../Projects/DocumentStatusChip";
 import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined';
 import AddIcon from '@mui/icons-material/Add';
@@ -19,7 +18,7 @@ import { ConditionModal } from "./CreateConditionModal";
 import LoadingButton from "../Shared/Buttons/LoadingButton";
 import ConditionFilters from "@/components/Filters/ConditionFilters";
 import { useConditionFilters } from "@/components/Filters/conditionFilterStore";
-import { CONDITION_STATUS, ConditionStatus } from "@/models/Condition";
+import { deriveConditionStatus, rollupConditionsStatus } from "@/utils/conditionStatus";
 import { useHasAllowedRoles, KeycloakRoles } from "@/hooks/useAuthorization";
 
 export const CardInnerBox = styled(Box)({
@@ -55,7 +54,6 @@ export const Conditions = ({
   const navigate = useNavigate();
   const canManage = useHasAllowedRoles([KeycloakRoles.MANAGE_CONDITIONS]);
   const [hasAmendments, setHasAmendments] = useState(false);
-  const [isToggleEnabled, setIsToggleEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [noConditions, setNoConditions] = useState(conditions?.length === 0);
   const [openModal, setOpenModal] = useState(false);
@@ -77,9 +75,7 @@ export const Conditions = ({
       ? condition.amendment_names?.toLowerCase().includes(filters.amendment_names.toLowerCase()) ?? false
       : true;
 
-    const conditionStatus: ConditionStatus = condition.is_approved
-      ? CONDITION_STATUS.true.value
-      : CONDITION_STATUS.false.value;
+    const conditionStatus = deriveConditionStatus(condition);
 
     const matchesStatus = filters.status && filters.status.length > 0
       ? filters.status.includes(conditionStatus)
@@ -91,9 +87,7 @@ export const Conditions = ({
   useEffect(() => {
     // Check if all conditions have status as true
     if (conditions && conditions.length > 0) {
-      const allApproved = conditions.every((condition) => condition.is_approved === true);
       const conditionHasAmendments = conditions.some(condition => condition.amendment_names != null);
-      setIsToggleEnabled(allApproved);
       setHasAmendments(conditionHasAmendments);
 
       const invalidConditions =
@@ -312,7 +306,7 @@ export const Conditions = ({
               <Grid item sx={{ display: "flex"}} px={1}>
                 <Box sx={{ display: "flex", justifyContent: 'center', alignItems: "center" }}>
                   <DocumentStatusChip
-                    status={noConditions? "nodata" : String(isToggleEnabled) as DocumentStatus}
+                    status={noConditions ? "nodata" : rollupConditionsStatus(conditions)}
                   />
                 </Box>
               </Grid>

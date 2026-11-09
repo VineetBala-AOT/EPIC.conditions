@@ -25,6 +25,7 @@ from condition_api.models.document import Document
 from condition_api.models.document_category import DocumentCategory
 from condition_api.models.document_type import DocumentType as DocumentTypeModel
 from condition_api.models.project import Project
+from condition_api.services.condition_approval_service import ConditionApprovalService
 from condition_api.utils.enums import DocumentType
 
 
@@ -159,24 +160,36 @@ class DocumentService:
                 Amendment.date_issued
             ).all()
 
-            # Append the main document to the result list
+            # Append the main document to the result list. A document whose conditions
+            # are otherwise approved/awaiting still rolls up to "Data Entry Required"
+            # (null) when any of its conditions has an unfilled required package.
+            document_status = document.status
+            if document_status is not None and ConditionApprovalService.document_needs_data_entry(
+                document_id=document.document_id
+            ):
+                document_status = None
             result.append({
                 'document_id': document.document_id,
                 'document_label': document.document_label,
                 'created_date': document.created_date,
                 'year_issued': document.year_issued,
-                'status': document.status,
+                'status': document_status,
                 'is_latest_amendment_added': document.is_latest_amendment_added
             })
 
             # Append all amendments for the current document
             for amendment in amendments_query:
+                amendment_status = amendment.status
+                if amendment_status is not None and ConditionApprovalService.document_needs_data_entry(
+                    amended_document_id=amendment.document_id
+                ):
+                    amendment_status = None
                 result.append({
                     'document_id': amendment.document_id,
                     'document_label': amendment.document_label,
                     'created_date': amendment.created_date,
                     'year_issued': amendment.year_issued,
-                    'status': amendment.status,
+                    'status': amendment_status,
                     'parent_document_id': document.document_id
                 })
 
