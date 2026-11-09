@@ -29,10 +29,19 @@ export function ProjectsPage() {
   }, [setIsFromConsolidated]);
   const {
     data: projectsData,
-    isPending: isProjectsLoading,
+    isPending: isProjectsPending,
+    isFetching: isProjectsFetching,
     isError: isProjectsError,
     error,
   } = useGetProjects();
+
+  // Show the skeleton while the query is (re)fetching, not only on first load.
+  // The hook refetches on mount (refetchOnMount: true), so navigating back here
+  // after approving a package would otherwise briefly render the stale cached
+  // status before the fresh one arrives. Gating on isFetching keeps the loader
+  // up until the up-to-date status is in hand. (refetchOnWindowFocus is off, so
+  // this only triggers on mount/navigation, never on a background focus event.)
+  const isProjectsLoading = isProjectsPending || isProjectsFetching;
 
   const { data: documentTypeData } = useGetDocumentType();
 

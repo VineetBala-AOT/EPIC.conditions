@@ -22,6 +22,10 @@ class ConditionSchema(Schema):
     amendment_names = fields.Str(data_key="amendment_names", allow_none=True)
     year_issued = fields.Int(data_key="year_issued", allow_none=True)
     is_approved = fields.Bool(data_key="is_approved", allow_none=True)
+    # Rolled-up 3-state badge status ("nodata" | "false" | "true"); see
+    # ConditionApprovalService.compute_condition_status. Derived/read-only: it is
+    # computed server-side and must never be loaded onto the model.
+    status = fields.Str(data_key="status", allow_none=True, dump_only=True)
     is_topic_tags_approved = fields.Bool(data_key="is_topic_tags_approved", allow_none=True)
     is_condition_attributes_approved = fields.Bool(
         data_key="is_condition_attributes_approved", allow_none=True)

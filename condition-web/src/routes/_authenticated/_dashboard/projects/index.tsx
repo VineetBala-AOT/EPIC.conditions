@@ -20,10 +20,19 @@ export const Route = createFileRoute("/_authenticated/_dashboard/projects/")({
 export function ProjectsPage() {
   const {
     data: projectsData,
-    isPending: isProjectsLoading,
+    isPending: isProjectsPending,
+    isFetching: isProjectsFetching,
     isError: isProjectsError,
     error,
   } = useGetProjects();
+
+  // Show the skeleton while the query is (re)fetching, not only on first load.
+  // The hook refetches on mount (refetchOnMount: true), so returning to this
+  // landing after approving a package would otherwise briefly show the stale
+  // cached status before the fresh one arrives. Gating on isFetching holds the
+  // loader until the up-to-date status is in hand. (refetchOnWindowFocus is off,
+  // so this only triggers on mount/navigation, never on a background focus.)
+  const isProjectsLoading = isProjectsPending || isProjectsFetching;
 
   const {
     data: documentTypeData,

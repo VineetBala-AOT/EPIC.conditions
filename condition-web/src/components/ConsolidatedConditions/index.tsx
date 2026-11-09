@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { BCDesignTokens } from "epic.theme";
-import { CONDITION_STATUS, ConditionModel, ConditionStatus } from "@/models/Condition";
-import { DocumentStatus } from "@/models/Document";
+import { ConditionModel } from "@/models/Condition";
+import { deriveConditionStatus, rollupConditionsStatus } from "@/utils/conditionStatus";
 import { Box, Button, FormControlLabel, Grid, Stack, Switch, Typography, styled } from "@mui/material";
 import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
@@ -82,9 +82,7 @@ export const ConsolidatedConditions = ({
         ? condition.amendment_names?.toLowerCase().includes(filters.amendment_names.toLowerCase()) ?? false
         : true;
 
-      const conditionStatus: ConditionStatus = condition.is_approved
-        ? CONDITION_STATUS.true.value
-        : CONDITION_STATUS.false.value;
+      const conditionStatus = deriveConditionStatus(condition);
 
       const matchesStatus = filters.status?.length > 0
         ? filters.status.includes(conditionStatus)
@@ -145,7 +143,7 @@ export const ConsolidatedConditions = ({
                   </Box>
                   <Box sx={{ display: "flex", alignItems: "top", fontWeight: "normal" }}>
                     <DocumentStatusChip
-                      status={noConditions? "nodata" : String(allApproved) as DocumentStatus}
+                      status={noConditions ? "nodata" : rollupConditionsStatus(conditions)}
                       />
                   </Box>
                 </Stack>
