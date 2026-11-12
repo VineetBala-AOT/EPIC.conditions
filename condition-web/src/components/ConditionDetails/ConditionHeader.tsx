@@ -407,19 +407,9 @@ const ConditionHeader = ({
                 display: 'flex',
                 flexDirection: 'column',
                 height: '100%',
-                // Query this card's OWN width (it sits in a half-width column, so the
-                // viewport breakpoints don't reflect how much room the card actually has).
                 containerType: 'inline-size',
               }}
             >
-              {/*
-                Fields re-order based on the card's own width (container query), not the
-                viewport. When the card is wide enough, Project sits on the left and
-                Year Condition Issued is pushed to the right of the same line, with
-                Document below (how it used to be). When the card is too narrow for both,
-                Year drops to its own line BELOW Document. Document always occupies a full
-                line (flexBasis 100%), and the year value never wraps (whiteSpace nowrap).
-              */}
               <Box
                 sx={{
                   display: 'flex',
@@ -430,8 +420,6 @@ const ConditionHeader = ({
                   p: 2,
                 }}
               >
-                {/* Project — always first. Wider gap (4.5 vs 1.5) makes up for "Project:" being
-                    shorter than "Document:", so both values start at the same x position. */}
                 <Box sx={{ order: 1, display: 'flex', alignItems: 'center', gap: 4.5, minWidth: 0 }}>
                   <StyledLabel sx={{ whiteSpace: "nowrap" }}>
                     Project:
@@ -441,7 +429,6 @@ const ConditionHeader = ({
                   </Typography>
                 </Box>
 
-                {/* Document — always on its own full-width line */}
                 <Box
                   sx={{
                     order: 2,
@@ -461,7 +448,6 @@ const ConditionHeader = ({
                   </Typography>
                 </Box>
 
-                {/* Year — bottom of the stack when narrow; top-right when the card has room */}
                 <Box
                   sx={{
                     order: 3,
